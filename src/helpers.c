@@ -12,6 +12,4 @@ unsigned char* decodeImage(const char* filename, unsigned char* image, unsigned*
 	if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 
 	free(png);
-
-	return image;
 }
