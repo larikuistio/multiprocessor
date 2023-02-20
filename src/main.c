@@ -1,5 +1,10 @@
 #include "helpers.h"
 
 void main(void) {
-    return 0;
+    const char* filename = "images/im0.png";
+    unsigned char* image = 0;
+    unsigned * width, height; 
+    decodeImage(filename, image, width, height);
+
+    free(image);
 }
