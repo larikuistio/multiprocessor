@@ -5,6 +5,6 @@ void main(void) {
     unsigned char* image = 0;
     unsigned * width, height; 
     decodeImage(filename, image, width, height);
-    
-    free(image)
+
+    free(image);
 }
