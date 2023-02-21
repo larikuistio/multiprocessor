@@ -6,7 +6,7 @@
 
 #include "lodepng.h"
 
-void decodeImage(const char* filename, unsigned char* image, unsigned* width, unsigned* height);
+void decodeImage(const char* filename, unsigned char** image, unsigned* width, unsigned* height);
 
 void encodeImage(const char* filename, unsigned char* image, unsigned width, unsigned height);
 
