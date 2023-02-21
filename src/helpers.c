@@ -2,7 +2,7 @@
 
 void decodeImage(const char* filename, unsigned char* image, unsigned* width, unsigned* height) {
 
-	unsigned error;
+	unsigned error = 0;
 	unsigned char* png = 0;
 	size_t pngsize;
 
@@ -13,13 +13,13 @@ void decodeImage(const char* filename, unsigned char* image, unsigned* width, un
 	free(png);
 }
 
-void encodeImage(const char* filename, unsigned char* image, unsigned* width, unsigned* height) {
+void encodeImage(const char* filename, unsigned char* image, unsigned width, unsigned height) {
 
-	unsigned error;
+	unsigned error = 0;
 	unsigned char* png = 0;
 	size_t pngsize;
 
-	error = lodepng_encode32(&png, &pngsize, image, *width, *height);
+	error = lodepng_encode32(&png, &pngsize, image, width, height);
 	if(!error) lodepng_save_file(png, pngsize, filename);
 	if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 
