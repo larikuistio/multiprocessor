@@ -6,8 +6,6 @@ void main(void) {
     unsigned width, height; 
     decodeImage(filename, &image, &width, &height);
 
-
-
     const char* filename1 = "images/test.png";
     encodeImage(filename1, image, &width, &height);
     printf("Program finished\n");
