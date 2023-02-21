@@ -2,7 +2,7 @@
 
 void decodeImage(const char* filename, unsigned char** image, unsigned* width, unsigned* height) {
 
-	unsigned error;
+	unsigned error = 0;
 	unsigned char* png = 0;
 	size_t pngsize;
 
@@ -15,7 +15,7 @@ void decodeImage(const char* filename, unsigned char** image, unsigned* width, u
 
 void encodeImage(const char* filename, unsigned char* image, unsigned* width, unsigned* height) {
 
-	unsigned error;
+	unsigned error = 0;
 	unsigned char* png = 0;
 	size_t pngsize;
 
@@ -27,3 +27,40 @@ void encodeImage(const char* filename, unsigned char* image, unsigned* width, un
 
 }
 
+bool resizeImage(unsigned char* image, unsigned char* newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight) {
+    
+    *newwidth = (unsigned)*width/4;
+    *newheight = (unsigned)*height/4;
+    newimage = malloc((*newwidth)*(*newheight)*4*sizeof(unsigned char));
+
+    if (newimage == NULL) {
+        printf("malloc failed\n");
+        return false;
+    }
+    
+    
+    unsigned char* imgptr = image;
+    int j = 0;
+    for(unsigned i = 0; i < (*width)*(*height)*4; i += 16)
+    {
+        newimage[j] = *imgptr;
+        imgptr++;
+        j++;
+        newimage[j] = *imgptr;
+        imgptr++;
+        j++;
+        newimage[j] = *imgptr;
+        imgptr++;
+        j++;
+        newimage[j] = *imgptr;
+        imgptr++;
+        j++;
+        imgptr += 12;
+        if(i % 11760 == 0)
+        {
+            i += 35280;
+            imgptr += 35280;
+        }
+    }
+    return true;
+}
