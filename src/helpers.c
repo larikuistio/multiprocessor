@@ -7,7 +7,7 @@ void decodeImage(const char* filename, unsigned char** image, unsigned* width, u
 	size_t pngsize;
 
 	error = lodepng_load_file(&png, &pngsize, filename);
-	if(!error) error = lodepng_decode32(image, width, height, png, pngsize);
+	if(!error) error = lodepng_decode24(image, width, height, png, pngsize);
 	if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 
 	free(png);
@@ -19,7 +19,7 @@ void encodeImage(const char* filename, unsigned char* image, unsigned* width, un
 	unsigned char* png = 0;
 	size_t pngsize;
     
-	error = lodepng_encode32(&png, &pngsize, image, *width, *height);
+	error = lodepng_encode24(&png, &pngsize, image, *width, *height);
 	if(!error) lodepng_save_file(png, pngsize, filename);
 	if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 
@@ -27,11 +27,11 @@ void encodeImage(const char* filename, unsigned char* image, unsigned* width, un
 
 }
 
-bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight) {
+bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight, unsigned pixel_size) {
     
     *newwidth = (unsigned)*width / 4;
     *newheight = (unsigned)*height / 4;
-    *newimage = malloc((*newwidth) * (*newheight) * 4 * sizeof(unsigned char));
+    *newimage = malloc((*newwidth) * (*newheight) * pixel_size * sizeof(unsigned char));
 
     if (*newimage == NULL) {
         printf("malloc failed\n");
@@ -39,16 +39,16 @@ bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width
     }
     
     int j = 0;
-    for(unsigned i = 0; i < (*width) * (*height) * 4; i += 16)
+    for(unsigned i = 0; i < (*width) * (*height) * pixel_size; i += pixel_size*4)
     {
-        (*newimage)[j] = image[i];
-        (*newimage)[j + 1] = image[i + 1];
-        (*newimage)[j + 2] = image[i + 2];
-        (*newimage)[j + 3] = image[i + 3];
-        j += 4;
-        if(i % 11760 == 0)
+        for(unsigned k = 0; k < pixel_size; k++)
         {
-            i += 35280;
+            (*newimage)[j + k] = image[i + k];
+        }
+        j += pixel_size;
+        if(i % (*width)*pixel_size == 0)
+        {
+            i += (*width)*pixel_size;
         }
 
     }

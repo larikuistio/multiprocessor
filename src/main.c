@@ -11,12 +11,15 @@ int main(void) {
     unsigned width, height;
     decodeImage(filename, &image, &width, &height);
 
+    // rgb_to_gray();
 
     //const char* filename2 = "images/test1.png";
     const char* filename3 = "images/resized.png";
     unsigned char* image3 = 0;
     unsigned newwidth, newheight;
-    resizeImage(image, &image3, &width, &height, &newwidth, &newheight);
+    resizeImage(image, &image3, &width, &height, &newwidth, &newheight, 3);
+
+    // gray_to_rgb();
 
     const char* filename1 = "images/test.png";
     encodeImage(filename1, image, &width, &height);
