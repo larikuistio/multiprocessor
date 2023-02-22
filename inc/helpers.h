@@ -15,6 +15,6 @@ bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned
 
 bool convertToRGB(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height);
 
-bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight);
+bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight, unsigned pixel_size);
 
 #endif
