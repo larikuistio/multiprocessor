@@ -1,5 +1,8 @@
 #include "helpers.h"
 
+#define PIXEL_SIZE 4
+#define SUPERMAGICNUMBER 3
+
 void decodeImage(const char* filename, unsigned char** image, unsigned* width, unsigned* height) {
 
 	unsigned error = 0;
@@ -7,7 +10,7 @@ void decodeImage(const char* filename, unsigned char** image, unsigned* width, u
 	size_t pngsize;
 
 	error = lodepng_load_file(&png, &pngsize, filename);
-	if(!error) error = lodepng_decode24(image, width, height, png, pngsize);
+	if(!error) error = lodepng_decode32(image, width, height, png, pngsize);
 	if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 
 	free(png);
@@ -19,7 +22,7 @@ void encodeImage(const char* filename, unsigned char* image, unsigned* width, un
 	unsigned char* png = 0;
 	size_t pngsize;
     
-	error = lodepng_encode24(&png, &pngsize, image, *width, *height);
+	error = lodepng_encode32(&png, &pngsize, image, *width, *height);
 	if(!error) lodepng_save_file(png, pngsize, filename);
 	if(error) printf("error %u: %s\n", error, lodepng_error_text(error));
 
@@ -27,7 +30,7 @@ void encodeImage(const char* filename, unsigned char* image, unsigned* width, un
 
 }
 
-bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height, unsigned pixel_size) {
+bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height) {
 
     *newimage = malloc((*width) * (*height) * sizeof(unsigned char));
     
@@ -37,7 +40,7 @@ bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned
     }
     
     int j = 0;
-    for(unsigned i = 0; i < (*width) * (*height) * pixel_size; i += pixel_size)
+    for(unsigned i = 0; i < (*width) * (*height) * PIXEL_SIZE; i += PIXEL_SIZE)
     {
         (*newimage)[j] = 0.2126*image[i] + 0.7152*image[i+1] + 0.0722*image[i+2];
         j++;
@@ -69,11 +72,11 @@ bool convertToRGB(unsigned char* image, unsigned char** newimage, unsigned *widt
     return true;
 }
 
-bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight, unsigned pixel_length) {
+bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight) {
     
     *newwidth = (unsigned)*width / 4;
     *newheight = (unsigned)*height / 4;
-    *newimage = malloc((*newwidth) * (*newheight) * pixel_size * sizeof(unsigned char));
+    *newimage = malloc((*newwidth) * (*newheight) * PIXEL_SIZE);
 
     if (*newimage == NULL) {
         printf("malloc failed\n");
@@ -81,17 +84,18 @@ bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width
     }
     
     int j = 0;
-    for(unsigned i = 0; i < (*width) * (*height) * pixel_size; i += pixel_size*4)
+    for(unsigned i = 0; i < (*width) * (*height-SUPERMAGICNUMBER) * PIXEL_SIZE; i += PIXEL_SIZE*4)
     {
-        for(unsigned k = 0; k < pixel_size; k++)
+        // printf("%u\n", i);
+        if(i % ((*width) * PIXEL_SIZE) == 0 && i != 0)
         {
-            (*newimage)[j + k] = image[i + k];
+            i += (*width)* PIXEL_SIZE * 3;
         }
-        j += pixel_size;
-        if(i % (*width)*pixel_size == 0)
-        {
-            i += (*width)*pixel_size;
-        }
+        (*newimage)[j]     = image[i];
+        (*newimage)[j + 1] = image[i + 1];
+        (*newimage)[j + 2] = image[i + 2];
+        (*newimage)[j + 3] = image[i + 3];
+        j += 4;
 
     }
     return true;

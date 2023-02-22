@@ -11,20 +11,18 @@ int main(void) {
     unsigned width, height;
     decodeImage(filename, &image, &width, &height);
 
-    // rgb_to_gray();
-
     //const char* filename2 = "images/test1.png";
     const char* filename3 = "images/resized.png";
     unsigned char* image3 = 0;
     unsigned char* image4 = 0;
     unsigned char* image5 = 0;
     unsigned newwidth, newheight;
-    resizeImage(image, &image3, &width, &height, &newwidth, &newheight, 3);
-    convertToGrayscale(image3, &image4, &newwidth, &newheight, 4);
-    const char* filename1 = "images/test.png";
-    encodeImage(filename1, image, &width, &height);
+    resizeImage(image, &image3, &width, &height, &newwidth, &newheight);
+    convertToGrayscale(image3, &image4, &newwidth, &newheight);
+    // const char* filename1 = "images/test.png";
+    // encodeImage(filename1, image, &width, &height);
     // encodeImage(filename2, image2, &width, &height);
-    convertToRGB(image4, &image5, &newwidth, &newheight, 4);
+    convertToRGB(image4, &image5, &newwidth, &newheight);
     encodeImage(filename3, image5, &newwidth, &newheight);
     printf("Program finished\n");
     free(image);
