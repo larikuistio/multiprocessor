@@ -12,7 +12,6 @@ int main(void) {
     decodeImage(filename, &image, &width, &height);
 
 
-    const char* filename1 = "images/test.png";
     //const char* filename2 = "images/test1.png";
     const char* filename3 = "images/resized.png";
     unsigned char* image3 = 0;
