@@ -27,7 +27,25 @@ void encodeImage(const char* filename, unsigned char* image, unsigned* width, un
 
 }
 
-bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight, unsigned pixel_size) {
+bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height, unsigned pixel_size) {
+
+    *newimage = malloc((*width) * (*height) * sizeof(unsigned char));
+    
+    if (*newimage == NULL) {
+        printf("malloc failed\n");
+        return false;
+    }
+    
+    int j = 0;
+    for(unsigned i = 0; i < (*width) * (*height) * pixel_size; i += pixel_size)
+    {
+        (*newimage)[j] = 0.2126*image[i] + 0.7152*image[i+1] + 0.0722*image[i+2];
+        j++;
+    }
+    return true;
+}
+
+bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight, unsigned pixel_length) {
     
     *newwidth = (unsigned)*width / 4;
     *newheight = (unsigned)*height / 4;

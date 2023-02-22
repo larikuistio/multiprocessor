@@ -11,6 +11,7 @@ void decodeImage(const char* filename, unsigned char** image, unsigned* width, u
 
 void encodeImage(const char* filename, unsigned char* image, unsigned* width, unsigned* height);
 
+bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height, unsigned pixel_size);
 
 bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight, unsigned pixel_size);
 
