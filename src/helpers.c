@@ -45,6 +45,30 @@ bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned
     return true;
 }
 
+bool convertToRGB(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height) {
+
+    *newimage = malloc((*width) * (*height) * 4 * sizeof(unsigned char));
+    
+    if (*newimage == NULL) {
+        printf("malloc failed\n");
+        return false;
+    }
+    
+    int j = 0;
+    for(unsigned i = 0; i < (*width) * (*height); i++)
+    {
+        (*newimage)[j] = image[i];
+        j++;
+        (*newimage)[j] = image[i];
+        j++;
+        (*newimage)[j] = image[i];
+        j++;
+        (*newimage)[j] = image[i];
+        j++;
+    }
+    return true;
+}
+
 bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight) {
     
     *newwidth = (unsigned)*width / 4;

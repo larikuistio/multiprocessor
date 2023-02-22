@@ -13,6 +13,8 @@ void encodeImage(const char* filename, unsigned char* image, unsigned* width, un
 
 bool convertToGrayscale(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height, unsigned pixel_size);
 
+bool convertToRGB(unsigned char* image, unsigned char** newimage, unsigned *width, unsigned *height);
+
 bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight);
 
 #endif
