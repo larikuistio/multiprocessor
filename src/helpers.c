@@ -103,24 +103,11 @@ bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width
 
 bool addMatrix(unsigned** in_a, unsigned** in_b, unsigned** out, unsigned row_size, unsigned col_size) {
     
-    unsigned i, j, q;
-    for( i = 0, q = 0 ; i < row_size; i++ ) {
+    unsigned i, j;
+    for( i = 0; i < row_size; i++ ) {
         for( j = 0 ; j < col_size; j++ ) {
-            printf("in_a[%d][%d] = %d\n", i, j, in_a[i][j]);
+                out[i][j] = in_a[i][j] + in_b[i][j];    
         }
     }
-
-    // for( i = 0, q = 0 ; i < array_size; i++ ) {
-    //     for( j = 0 ; j < array_size; j++ ) {
-    //         printf("in_b[%d][%d] = %d\n", i, j, in_b[i][j]);
-    //     }
-    // }
-    // printf("%d", **out[1]);
-    // for( i = 0, q = 0 ; i < array_size; i++ ) {
-    //     for( j = 0 ; j < array_size; j++ ) {
-    //         printf("out[%d][%d] = %d\n", i, j, out[i][j]);
-    //     }
-    // }
-    
-    return false;
+    return EXIT_SUCCESS;
 }

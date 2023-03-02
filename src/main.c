@@ -29,6 +29,7 @@ int add_matrices(void) {
 
     addMatrix(arr1, arr2, added_arr, array_row_size, array_col_size);
 
+
     for( i = 0; i < array_row_size; i++ ) {
         free(arr1[i]);
         free(arr2[i]);
@@ -38,6 +39,7 @@ int add_matrices(void) {
     free(arr1);
     free(arr2);
     free(added_arr);
+    
     return EXIT_SUCCESS;
 }
 
