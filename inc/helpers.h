@@ -15,6 +15,6 @@ bool convertToRGB(unsigned char* image, unsigned char** newimage, unsigned *widt
 
 bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width, unsigned* height, unsigned* newwidth, unsigned* newheight);
 
-bool addMatrix(unsigned int* in_a, unsigned int* in_b, unsigned int* out, unsigned size);
+bool addMatrix(unsigned int** in_a, unsigned int** in_b, unsigned int** out, unsigned row_size, unsigned col_size);
 
 #endif

@@ -6,6 +6,40 @@
 
 #include "helpers.h"
 
+int add_matrices(void) {
+
+    unsigned array_row_size = 10;
+    unsigned array_col_size = 10;
+
+    unsigned** arr1 = calloc(array_row_size, sizeof(unsigned*));
+    unsigned** arr2 = calloc(array_row_size, sizeof(unsigned*));
+    unsigned** added_arr = calloc(array_row_size, sizeof(unsigned*));
+
+
+    unsigned i, j, q;
+    for( i = 0, q = 0 ; i < array_row_size; i++ ) {
+        arr1[i] =       calloc(array_col_size, sizeof(unsigned*));
+        arr2[i] =       calloc(array_col_size, sizeof(unsigned*));
+        added_arr[i] =  calloc(array_col_size, sizeof(unsigned*));
+        for( j = 0 ; j < array_col_size; j++ ) {
+            arr1[i][j] = ++q;
+            arr2[i][j] = ++q;
+        }
+    }
+
+    addMatrix(arr1, arr2, added_arr, array_row_size, array_col_size);
+
+    for( i = 0; i < array_row_size; i++ ) {
+        free(arr1[i]);
+        free(arr2[i]);
+        free(added_arr[i]);
+    }
+
+    free(arr1);
+    free(arr2);
+    free(added_arr);
+    return EXIT_SUCCESS;
+}
 
 int main(void) {
     // const char* filename = "images/im1.png";
@@ -32,33 +66,11 @@ int main(void) {
     // free(image4);
     // free(image5);
 
-    unsigned array_row_size = 10;
-    unsigned array_col_size = 10;
-
-    unsigned* arr1 = 0;
-    arr1 = calloc(array_row_size*array_col_size, sizeof(*arr1));
-
-    unsigned* arr2 = 0;
-    arr2 = calloc(array_row_size*array_col_size, sizeof(*arr2));
-
-    int i, j, q;
-    for( i = 0, q = 0 ; i < array_row_size; i++ ) {
-        for( j = 0 ; j < array_col_size; j++ ) {
-            arr1[i][j] = ++q;
-            arr2[i][j] = ++q;
-            // printf("arr1[%d][%d] = %d\n", i, j, arr1[i][j]);
-        }
+    if(add_matrices()) {
+        printf("Add matrices failed\n");
+        return EXIT_FAILURE;
+    
     }
-
-    unsigned* added_arr = 0;
-    added_arr = calloc(array_row_size*array_col_size, sizeof(*added_arr));
-
-    // addMatrix(arr1, arr2, &added_arr, array_row_size);
-
-    free(arr1);
-    free(arr2);
-    free(added_arr);
-
     printf("Program finished\n");
     return EXIT_SUCCESS;
 }

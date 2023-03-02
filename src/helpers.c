@@ -101,11 +101,11 @@ bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width
     return true;
 }
 
-bool addMatrix(unsigned int* in_a, unsigned int* in_b, unsigned int** out, unsigned array_size) {
+bool addMatrix(unsigned** in_a, unsigned** in_b, unsigned** out, unsigned row_size, unsigned col_size) {
     
-    int i, j, q;
-    for( i = 0, q = 0 ; i < array_size; i++ ) {
-        for( j = 0 ; j < array_size; j++ ) {
+    unsigned i, j, q;
+    for( i = 0, q = 0 ; i < row_size; i++ ) {
+        for( j = 0 ; j < col_size; j++ ) {
             printf("in_a[%d][%d] = %d\n", i, j, in_a[i][j]);
         }
     }
