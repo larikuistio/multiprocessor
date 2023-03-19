@@ -1,13 +1,14 @@
 #define NUM_FILES 1
 #define PROGRAM_FILE_0 "kernels/addmatrix.cl"
 #define KERNEL_NAME "addmatrix"
-#define MATRIX_SIZE 10
+#define MATRIX_SIZE 10000
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <inttypes.h>
+#include <string.h>
 #include <CL/cl.h>
 #include "helpers.h"
 
@@ -48,7 +49,7 @@ int add_matrices(void) {
     return EXIT_SUCCESS;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
 
     if(add_matrices()) {
         printf("Add matrices failed\n");
@@ -250,9 +251,9 @@ int main(void) {
    }
 
    // Create memory buffers on the device
-   cl_mem A_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, 4 * sizeof(int), NULL, &err);
-   cl_mem B_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, 4 * sizeof(int), NULL, &err);
-   cl_mem results_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, 4 * sizeof(int), NULL, &err);
+   cl_mem A_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, MATRIX_SIZE * sizeof(int), NULL, &err);
+   cl_mem B_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, MATRIX_SIZE * sizeof(int), NULL, &err);
+   cl_mem results_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, MATRIX_SIZE * sizeof(int), NULL, &err);
    if(err < 0) {
       perror("Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
@@ -306,11 +307,14 @@ int main(void) {
       return EXIT_FAILURE;   
    }
    
-   // print results
-   for(unsigned i = 0; i < MATRIX_SIZE; i++) {
-      printf(" %d ", results[i]);
+   if (argc > 1) {
+      if (strcmp(argv[1], "print-results") == 0) {
+         // print results
+         for(unsigned i = 0; i < MATRIX_SIZE; i++) {
+            printf(" %d ", results[i]);
+         }
+      }
    }
-
 
    /* Deallocate resources */
    for(unsigned i = 0; i < NUM_FILES; i++) {
