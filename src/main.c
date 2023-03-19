@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <inttypes.h>
-
+#include <CL/cl.h>
 #include "helpers.h"
 
 int add_matrices(void) {

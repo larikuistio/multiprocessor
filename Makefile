@@ -11,4 +11,4 @@ debug: src/$(mainfile).c src/helpers.c src/lodepng.c
 	clang -I inc src/$(mainfile).c src/helpers.c src/lodepng.c -lOpenCL -o debug -D_FORTIFY_SOURCE=2  -g3 -O0 -Wall -Wextra -fsanitize=leak -fsanitize=address $(CFLAGS)
 
 build: src/$(mainfile).c src/helpers.c src/lodepng.c 
-	gcc -I inc src/*.c -o main $(CFLAGS)
+	gcc -I inc src/$(mainfile).c src/helpers.c src/lodepng.c -lOpenCL -o main $(CFLAGS)
