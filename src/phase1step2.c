@@ -1,6 +1,7 @@
 #define NUM_FILES 1
 #define PROGRAM_FILE_0 "kernels/addmatrix.cl"
 #define KERNEL_NAME "addmatrix"
+#define MATRIX_SIZE 10
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -226,15 +227,111 @@ int main(void) {
       free(program_log);
       return EXIT_FAILURE;
    }
+
+   unsigned x = 1;
+   // Create matrixes
+   int *A = (int*)malloc(sizeof(int)*MATRIX_SIZE);
+   int *B = (int*)malloc(sizeof(int)*MATRIX_SIZE);
+   int *results = (int*)malloc(sizeof(int)*MATRIX_SIZE);
+   for(unsigned i = 0; i < MATRIX_SIZE; i++) {
+      A[i] = x;
+      B[i] = x * 2;
+      results[i] = 0;
+      x++;
+   }
    
+   
+
+   // Create command queue
+   cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
+   if(err < 0) {
+      perror("Couldn't create command queue");
+      return EXIT_FAILURE;   
+   }
+
+   // Create memory buffers on the device
+   cl_mem A_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, 4 * sizeof(int), NULL, &err);
+   cl_mem B_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, 4 * sizeof(int), NULL, &err);
+   cl_mem results_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, 4 * sizeof(int), NULL, &err);
+   if(err < 0) {
+      perror("Couldn't create memory buffers on the device");
+      return EXIT_FAILURE;   
+   }
+
+   // Copy buffers to the device
+   err = clEnqueueWriteBuffer(command_queue, A_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), A, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, B_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), B, 0, NULL, NULL);
+   if(err < 0) {
+      perror("Couldn't copy memory buffers to the device");
+      return EXIT_FAILURE;   
+   }
+
+   // Create kernel
+   cl_kernel kernel = clCreateKernel(program, "add_matrix", &err);
+   if(err < 0) {
+      perror("Couldn't create kernel");
+      return EXIT_FAILURE;   
+   }
+
+   // Set kernel arguments
+   err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&A_clmem);
+   err = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&B_clmem);
+   err = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&results_clmem);
+   if(err < 0) {
+      perror("Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+
+   // Execute kernel on the device
+   size_t global_size = MATRIX_SIZE;
+   size_t local_size = 10;
+   err = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+   if(err < 0) {
+      perror("Error in clEnqueueNDRangeKernel");
+      return EXIT_FAILURE;   
+   }
+   
+   // Read results
+   err = clEnqueueReadBuffer(command_queue, results_clmem, CL_TRUE, 0, MATRIX_SIZE*sizeof(int), results, 0, NULL, NULL);
+   if(err < 0) {
+      perror("Error in clEnqueueReadBuffer");
+      return EXIT_FAILURE;   
+   }
+
+   // Clean up and wait for all the commands to complete
+   err = clFlush(command_queue);
+   err = clFinish(command_queue);
+   if(err < 0) {
+      perror("Error executing command queue");
+      return EXIT_FAILURE;   
+   }
+   
+   // print results
+   for(unsigned i = 0; i < MATRIX_SIZE; i++) {
+      printf(" %d ", results[i]);
+   }
+
+
    /* Deallocate resources */
    for(unsigned i = 0; i < NUM_FILES; i++) {
       free(program_buffer[i]);
    }
-   clReleaseProgram(program);
-   clReleaseContext(context);
+   err = clReleaseKernel(kernel);
+   err = clReleaseProgram(program);
+   err = clReleaseMemObject(A_clmem);
+   err = clReleaseMemObject(B_clmem);
+   err = clReleaseMemObject(results_clmem);
+   err = clReleaseCommandQueue(command_queue);
+   err = clReleaseContext(context);
+   if(err < 0) {
+      perror("Error deallocating resources");
+      return EXIT_FAILURE;   
+   }
+   free(A);
+   free(B);
+   free(results);
 
 
-   printf("\nProgram finished\n");
+   printf("\n\nProgram finished\n");
    return EXIT_SUCCESS;
 }
