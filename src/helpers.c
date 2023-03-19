@@ -66,7 +66,7 @@ bool convertToRGB(unsigned char* image, unsigned char** newimage, unsigned *widt
         j++;
         (*newimage)[j] = image[i];
         j++;
-        (*newimage)[j] = image[i];
+        (*newimage)[j] = 255;
         j++;
     }
     return true;

@@ -8,23 +8,18 @@
 
 int add_matrices(void) {
 
-    unsigned array_row_size = 10;
-    unsigned array_col_size = 10;
+    unsigned array_row_size = 100;
+    unsigned array_col_size = 100;
 
-    unsigned** arr1 = calloc(array_row_size, sizeof(unsigned*));
-    unsigned** arr2 = calloc(array_row_size, sizeof(unsigned*));
-    unsigned** added_arr = calloc(array_row_size, sizeof(unsigned*));
+    unsigned* arr1 = calloc(array_row_size * array_col_size, sizeof(unsigned));
+    unsigned* arr2 = calloc(array_row_size * array_col_size, sizeof(unsigned));
+    unsigned* added_arr = calloc(array_row_size * array_col_size, sizeof(unsigned));
 
 
-    unsigned i, j, q;
-    for( i = 0, q = 0 ; i < array_row_size; i++ ) {
-        arr1[i] =       calloc(array_col_size, sizeof(unsigned*));
-        arr2[i] =       calloc(array_col_size, sizeof(unsigned*));
-        added_arr[i] =  calloc(array_col_size, sizeof(unsigned*));
-        for( j = 0 ; j < array_col_size; j++ ) {
-            arr1[i][j] = ++q;
-            arr2[i][j] = ++q;
-        }
+    unsigned q;
+    for(unsigned i = 0, q = 0 ; i < array_row_size * array_col_size; i++ ) {
+        arr1[i] = ++q;
+        arr2[i] = ++q;
     }
 
     addMatrix(arr1, arr2, added_arr, array_row_size, array_col_size);
