@@ -1,7 +1,8 @@
-#define NUM_FILES 1
-#define PROGRAM_FILE_0 "kernels/addmatrix.cl"
-#define KERNEL_NAME "add_matrix"
-#define MATRIX_SIZE 10000
+#define NUM_FILES 2
+#define PROGRAM_FILE_0 "kernels/movingfilter5x5.cl"
+#define PROGRAM_FILE_1 "kernels/grayscale.cl"
+#define KERNEL_NAME_0 "movingfilter5x5"
+#define KERNEL_NAME_1 "grayscale"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,50 +13,19 @@
 #include <CL/cl.h>
 #include "helpers.h"
 
-int add_matrices(void) {
-
-    unsigned array_row_size = 10;
-    unsigned array_col_size = 10;
-
-    unsigned** arr1 = calloc(array_row_size, sizeof(unsigned*));
-    unsigned** arr2 = calloc(array_row_size, sizeof(unsigned*));
-    unsigned** added_arr = calloc(array_row_size, sizeof(unsigned*));
-
-
-    unsigned i, j, q;
-    for( i = 0, q = 0 ; i < array_row_size; i++ ) {
-        arr1[i] =       calloc(array_col_size, sizeof(unsigned*));
-        arr2[i] =       calloc(array_col_size, sizeof(unsigned*));
-        added_arr[i] =  calloc(array_col_size, sizeof(unsigned*));
-        for( j = 0 ; j < array_col_size; j++ ) {
-            arr1[i][j] = ++q;
-            arr2[i][j] = ++q;
-        }
-    }
-
-    addMatrix(arr1, arr2, added_arr, array_row_size, array_col_size);
-
-
-    for( i = 0; i < array_row_size; i++ ) {
-        free(arr1[i]);
-        free(arr2[i]);
-        free(added_arr[i]);
-    }
-
-    free(arr1);
-    free(arr2);
-    free(added_arr);
-    
-    return EXIT_SUCCESS;
-}
 
 int main(int argc, char **argv) {
 
-    if(add_matrices()) {
-        printf("Add matrices failed\n");
-        return EXIT_FAILURE;
-    
-    }
+   if (argc > 2) {
+      printf("provide input and output image files names as arguments\n");
+      return EXIT_FAILURE;
+   }
+
+   const char* inputimg = argv[1];
+   const char* outputimg = argv[2];
+   unsigned char* image = 0;
+   unsigned width, height;
+   decodeImage(inputimg, &image, &width, &height);
 
    /* Host/device data structures */
    cl_platform_id platform;
@@ -200,6 +170,7 @@ int main(int argc, char **argv) {
    printf("HIGHEST SUPPORTED OPENCL VERSION: %s\nDEVICE OPENCL VERSION: %s\n", highest_version, device_version);
    printf("\n------------------------------------------\n");
 
+
    /* Create a context */
    context = clCreateContext(NULL, 1, &dev, NULL, NULL, &err);
    if(err < 0) {
@@ -300,7 +271,7 @@ int main(int argc, char **argv) {
    }
 
    // Create kernel
-   cl_kernel kernel = clCreateKernel(program, KERNEL_NAME, &err);
+   cl_kernel kernel = clCreateKernel(program, KERNEL_NAME_0, &err);
    if(err < 0) {
       perror("Couldn't create kernel");
       return EXIT_FAILURE;   
@@ -339,14 +310,7 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;   
    }
    
-   if (argc > 1) {
-      if (strcmp(argv[1], "print-results") == 0) {
-         // print results
-         for(unsigned i = 0; i < MATRIX_SIZE; i++) {
-            printf(" %d ", results[i]);
-         }
-      }
-   }
+   
 
    /* Deallocate resources */
    for(unsigned i = 0; i < NUM_FILES; i++) {

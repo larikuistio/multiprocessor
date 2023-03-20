@@ -1,4 +1,4 @@
-__kernel void add_matrix(__global uint* input,
+__kernel void movingfilter5x5(__global uint* input,
                         __global uint* output,
                         __constant ushort* width,
                         __constant ushort* height) {
