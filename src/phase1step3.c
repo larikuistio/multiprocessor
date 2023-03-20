@@ -16,7 +16,7 @@
 
 int main(int argc, char **argv) {
 
-   if (argc > 2) {
+   if (argc < 2) {
       printf("provide input and output image files names as arguments\n");
       return EXIT_FAILURE;
    }
@@ -24,6 +24,8 @@ int main(int argc, char **argv) {
    const char* inputimg = argv[1];
    const char* outputimg = argv[2];
    unsigned char* image = 0;
+   unsigned char* grayscale = 0;
+   unsigned char* output = 0;
    unsigned width, height;
    decodeImage(inputimg, &image, &width, &height);
 
@@ -233,7 +235,8 @@ int main(int argc, char **argv) {
    }
 
    // allocate memory
-   
+   grayscale = (unsigned char*)malloc(sizeof(unsigned char)*width*height*4);
+   output = (unsigned char*)malloc(sizeof(unsigned char)*width*height*4);
 
    // Create command queue
    cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
@@ -244,47 +247,64 @@ int main(int argc, char **argv) {
 
    // Create memory buffers on the device
    cl_mem input_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
+   if(err < 0) {
+      perror("0 Couldn't create memory buffers on the device");
+      return EXIT_FAILURE;   
+   }
+   cl_mem grayscale_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, width * height * 4 * sizeof(unsigned char), NULL, &err);
+   if(err < 0) {
+      perror("1 Couldn't create memory buffers on the device");
+      return EXIT_FAILURE;   
+   }
    cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
-      perror("Couldn't create memory buffers on the device");
+      perror("2 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
 
    // Copy buffers to the device
    err = clEnqueueWriteBuffer(command_queue, input_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), B, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
+   
    if(err < 0) {
       perror("Couldn't copy memory buffers to the device");
       return EXIT_FAILURE;   
    }
 
    // Create kernel
-   cl_kernel kernel = clCreateKernel(program, KERNEL_NAME_0, &err);
+   cl_kernel kernel0 = clCreateKernel(program, KERNEL_NAME_0, &err);
+   cl_kernel kernel1 = clCreateKernel(program, KERNEL_NAME_1, &err);
    if(err < 0) {
       perror("Couldn't create kernel");
       return EXIT_FAILURE;   
    }
 
    // Set kernel arguments
-   err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*)&A_clmem);
-   err = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*)&B_clmem);
-   err = clSetKernelArg(kernel, 2, sizeof(cl_mem), (void*)&results_clmem);
+   err = clSetKernelArg(kernel0, 0, sizeof(cl_mem), (void*)&input_clmem);
+   err = clSetKernelArg(kernel0, 1, sizeof(cl_mem), (void*)&grayscale_clmem);
+   err = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&grayscale_clmem);
+   err = clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&output_clmem);
+   err = clSetKernelArg(kernel1, 2, sizeof(unsigned short), (void*)&width);
+   err = clSetKernelArg(kernel1, 3, sizeof(unsigned short), (void*)&height);
    if(err < 0) {
       perror("Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
 
    // Execute kernel on the device
-   size_t global_size = MATRIX_SIZE;
-   size_t local_size = 10;
-   err = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+   size_t global_size = width*height;
+   size_t local_size = 100;
+   err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+   err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+   
    if(err < 0) {
       perror("Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
    
    // Read results
-   err = clEnqueueReadBuffer(command_queue, results_clmem, CL_TRUE, 0, MATRIX_SIZE*sizeof(int), results, 0, NULL, NULL);
+   err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, width*height*4*sizeof(unsigned char), output, 0, NULL, NULL);
    if(err < 0) {
       perror("Error in clEnqueueReadBuffer");
       return EXIT_FAILURE;   
@@ -299,25 +319,27 @@ int main(int argc, char **argv) {
    }
    
    
+      uint sum = 0;
 
    /* Deallocate resources */
    for(unsigned i = 0; i < NUM_FILES; i++) {
       free(program_buffer[i]);
    }
-   err = clReleaseKernel(kernel);
+   err = clReleaseKernel(kernel0);
+   err = clReleaseKernel(kernel1);
    err = clReleaseProgram(program);
-   err = clReleaseMemObject(A_clmem);
-   err = clReleaseMemObject(B_clmem);
-   err = clReleaseMemObject(results_clmem);
+   err = clReleaseMemObject(input_clmem);
+   err = clReleaseMemObject(grayscale_clmem);
+   err = clReleaseMemObject(output_clmem);
    err = clReleaseCommandQueue(command_queue);
    err = clReleaseContext(context);
    if(err < 0) {
       perror("Error deallocating resources");
       return EXIT_FAILURE;   
    }
-   free(A);
-   free(B);
-   free(results);
+   free(image);
+   free(grayscale);
+   free(output);
 
 
    printf("\n\nProgram finished\n");

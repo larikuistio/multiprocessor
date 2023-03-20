@@ -14,7 +14,7 @@ __kernel void movingfilter5x5(__global uint* input,
    ushort filterHeight = 5;
    uint imgWidth = *width;
    uint imgHeight = *height;
-
+   uint sum = 0;
    uint x = get_global_id(0);
    uint y = 0;
    while (x > imgWidth) {
@@ -24,7 +24,6 @@ __kernel void movingfilter5x5(__global uint* input,
 
    if (x >= 2 && x <= imgWidth && y >= 2 && y <= imgHeight)
    {
-      uint sum = 0;
       uint xx = 0;
       uint yy = 0;
       for (uint i = 0; i < filterWidth; i++)
@@ -39,7 +38,6 @@ __kernel void movingfilter5x5(__global uint* input,
    }
    else
    {
-      uint sum = 0;
       uint xx = 0;
       uint yy = 0;
       for (uint i = 0; i < filterWidth; i++)
