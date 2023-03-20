@@ -1,19 +1,26 @@
-__kernel void movingfilter5x5(__global uint* input,
-                        __global uint* output,
-                        __constant ushort* width,
-                        __constant ushort* height) {
+__kernel void movingfilter5x5(__global uchar* input,
+                        __global uchar* output,
+                        __private uint width,
+                        __private uint height) {
    
-   uint filterMatrix[] = {
-      1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1,
-      1, 1, 1, 1, 1
+   /*uchar filterMatrix[] = {
+      1, 1, 0, 1, 1,
+      1, 0, 1, 0, 1,
+      0, 1, 1, 1, 0,
+      1, 0, 1, 0, 1,
+      1, 1, 0, 1, 1
+   };*/
+   uchar filterMatrix[] = {
+      0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0,
+      0, 0, 1, 0, 0,
+      0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0
    };
    ushort filterWidth = 5;
    ushort filterHeight = 5;
-   uint imgWidth = *width;
-   uint imgHeight = *height;
+   uint imgWidth = width*4;
+   uint imgHeight = height*4;
    uint sum = 0;
    uint x = get_global_id(0);
    uint y = 0;
@@ -48,7 +55,7 @@ __kernel void movingfilter5x5(__global uint* input,
             yy = y + (j - 2);
             if (xx < 0 || xx > imgWidth || yy < 0 || yy > imgHeight)
             {
-               sum += 128;
+               sum += 0;
             }
             else
             {

@@ -1,8 +1,8 @@
 #define NUM_FILES 2
 #define PROGRAM_FILE_0 "kernels/movingfilter5x5.cl"
 #define PROGRAM_FILE_1 "kernels/grayscale.cl"
-#define KERNEL_NAME_0 "movingfilter5x5"
-#define KERNEL_NAME_1 "grayscale"
+#define KERNEL_NAME_1 "movingfilter5x5"
+#define KERNEL_NAME_0 "grayscale"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -282,24 +282,48 @@ int main(int argc, char **argv) {
 
    // Set kernel arguments
    err = clSetKernelArg(kernel0, 0, sizeof(cl_mem), (void*)&input_clmem);
-   err = clSetKernelArg(kernel0, 1, sizeof(cl_mem), (void*)&grayscale_clmem);
-   err = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&grayscale_clmem);
-   err = clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&output_clmem);
-   err = clSetKernelArg(kernel1, 2, sizeof(unsigned short), (void*)&width);
-   err = clSetKernelArg(kernel1, 3, sizeof(unsigned short), (void*)&height);
    if(err < 0) {
-      perror("Couldn't set kernel arguments");
+      perror("0 Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+   err = clSetKernelArg(kernel0, 1, sizeof(cl_mem), (void*)&grayscale_clmem);
+   if(err < 0) {
+      perror("1 Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+   err = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&grayscale_clmem);
+   if(err < 0) {
+      perror("2 Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+   err = clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&output_clmem);
+   if(err < 0) {
+      perror("3 Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+   err = clSetKernelArg(kernel1, 2, sizeof(unsigned int), &width);
+   if(err < 0) {
+      perror("4 Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+   err = clSetKernelArg(kernel1, 3, sizeof(unsigned int), &height);
+   if(err < 0) {
+      perror("5 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
 
    // Execute kernel on the device
-   size_t global_size = width*height;
-   size_t local_size = 100;
-   err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
-   err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
-   
+   size_t global_size = width*height*4;
+   size_t local_size = 10;
+   cl_event event_list[1];
+   err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size, &local_size, 0, NULL, &event_list[0]);
    if(err < 0) {
-      perror("Error in clEnqueueNDRangeKernel");
+      perror("0 Error in clEnqueueNDRangeKernel");
+      return EXIT_FAILURE;   
+   }
+   err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size, &local_size, 1, event_list, NULL);
+   if(err < 0) {
+      perror("1 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
    
@@ -318,8 +342,8 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;   
    }
    
-   
-      uint sum = 0;
+   // output result
+   encodeImage(argv[2], output, &width, &height);
 
    /* Deallocate resources */
    for(unsigned i = 0; i < NUM_FILES; i++) {
