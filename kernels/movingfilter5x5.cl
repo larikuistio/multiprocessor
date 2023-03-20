@@ -37,6 +37,28 @@ __kernel void movingfilter5x5(__global uint* input,
          }
       }
    }
+   else
+   {
+      uint sum = 0;
+      uint xx = 0;
+      uint yy = 0;
+      for (uint i = 0; i < filterWidth; i++)
+      {
+         for (uint j = 0; j < filterHeight; j++)
+         {
+            xx = x + (i - 2);
+            yy = y + (j - 2);
+            if (xx < 0 || xx > imgWidth || yy < 0 || yy > imgHeight)
+            {
+               sum += 128;
+            }
+            else
+            {
+               sum += input[xx + yy * imgWidth] * filterMatrix[i + j * filterWidth];
+            }
+         }
+      }
+   }
 
    output[x + y * imgWidth] = sum;
 }

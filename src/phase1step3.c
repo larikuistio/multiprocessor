@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
    FILE *program_handle;
    char *program_buffer[NUM_FILES];
    char *program_log;
-   const char *file_name[] = {PROGRAM_FILE_0};
+   const char *file_name[] = {PROGRAM_FILE_0, PROGRAM_FILE_1};
    const char options[] = "-cl-finite-math-only -cl-no-signed-zeros";  
    size_t program_size[NUM_FILES];
    size_t log_size;
@@ -232,18 +232,7 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;
    }
 
-   unsigned x = 1;
-   // Create matrixes
-   int *A = (int*)malloc(sizeof(int)*MATRIX_SIZE);
-   int *B = (int*)malloc(sizeof(int)*MATRIX_SIZE);
-   int *results = (int*)malloc(sizeof(int)*MATRIX_SIZE);
-   for(unsigned i = 0; i < MATRIX_SIZE; i++) {
-      A[i] = x;
-      B[i] = x * 2;
-      results[i] = 0;
-      x++;
-   }
-   
+   // allocate memory
    
 
    // Create command queue
@@ -254,17 +243,16 @@ int main(int argc, char **argv) {
    }
 
    // Create memory buffers on the device
-   cl_mem A_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, MATRIX_SIZE * sizeof(int), NULL, &err);
-   cl_mem B_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, MATRIX_SIZE * sizeof(int), NULL, &err);
-   cl_mem results_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, MATRIX_SIZE * sizeof(int), NULL, &err);
+   cl_mem input_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
+   cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
       perror("Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
 
    // Copy buffers to the device
-   err = clEnqueueWriteBuffer(command_queue, A_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), A, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, B_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), B, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, input_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), B, 0, NULL, NULL);
    if(err < 0) {
       perror("Couldn't copy memory buffers to the device");
       return EXIT_FAILURE;   
