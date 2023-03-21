@@ -292,7 +292,7 @@ int main(int argc, char **argv) {
    // Copy buffers to the device
    err = clEnqueueWriteBuffer(command_queue, input_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image, 0, NULL, NULL);
    err = clEnqueueWriteBuffer(command_queue, resized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), grayscale, 0, NULL, NULL);
    err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
    
    if(err < 0) {
@@ -408,9 +408,9 @@ int main(int argc, char **argv) {
    start = clock();
 
 
-   unsigned char* image5 = 0;
-   convertToRGB(output, &image5, &resizedWidth, &resizedHeight);
-   encodeImage(outputimg, image5, &resizedWidth, &resizedHeight);
+   unsigned char* output_rgb_img = 0;
+   convertToRGB(output, &output_rgb_img, &resizedWidth, &resizedHeight);
+   encodeImage(outputimg, output_rgb_img, &resizedWidth, &resizedHeight);
 
    end = clock();
    elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
