@@ -2,8 +2,8 @@
 #define PROGRAM_FILE_0 "kernels/movingfilter5x5.cl"
 #define PROGRAM_FILE_1 "kernels/grayscale.cl"
 #define PROGRAM_FILE_2 "kernels/resizeimage.cl"
-#define KERNEL_NAME_1 "movingfilter5x5"
 #define KERNEL_NAME_0 "grayscale"
+#define KERNEL_NAME_1 "movingfilter5x5"
 #define KERNEL_NAME_2 "resizeimage"
 
 #include <stdio.h>
@@ -359,34 +359,28 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;   
    }
 
-    start = clock();
 
    // Execute kernel on the device
    size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
    size_t global_work_offset[2] = {0, 0};
    size_t global_size_resized = resizedWidth*resizedHeight*4;
    cl_event event_list[2];
+
+   // Resize
    err = clEnqueueNDRangeKernel(command_queue, kernel2, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
    if(err < 0) {
       perror("0 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
+
+   // Grayscale
    err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size_resized, NULL, 1, event_list, &event_list[1]);
-
-   end = clock();
-   elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
-   printf("\nTime taken to convert to grayscale: %lf seconds", elapsed_time);
-
-   start = clock();
-   err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size, &local_size, 1, event_list, NULL);
    if(err < 0) {
       perror("1 Error in clEnqueueNDRangeKernel");
-      return EXIT_FAILURE;
+      return EXIT_FAILURE;   
    }
 
-   end = clock();
-   elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
-   printf("\nTime taken to filter image: %lf seconds", elapsed_time);
+   // Moving filter
    err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size_resized, NULL, 2, event_list, NULL);
    if(err < 0) {
       perror("2 Error in clEnqueueNDRangeKernel");
