@@ -1,8 +1,10 @@
-#define NUM_FILES 2
+#define NUM_FILES 3
 #define PROGRAM_FILE_0 "kernels/movingfilter5x5.cl"
 #define PROGRAM_FILE_1 "kernels/grayscale.cl"
+#define PROGRAM_FILE_2 "kernels/resizeimage.cl"
 #define KERNEL_NAME_1 "movingfilter5x5"
 #define KERNEL_NAME_0 "grayscale"
+#define KERNEL_NAME_2 "resizeimage"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,10 +28,13 @@ int main(int argc, char **argv) {
    unsigned char* image = 0;
    unsigned char* grayscale = 0;
    unsigned char* output = 0;
-   unsigned width, height;
+   unsigned char* resized = 0;
+   unsigned width, height, resizedWidth, resizedHeight;
 
    clock_t start = clock();
    decodeImage(inputimg, &image, &width, &height);
+   resizedWidth = width / 4;
+   resizedHeight = height / 4;
    clock_t end = clock();
 
    double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
@@ -202,7 +207,7 @@ int main(int argc, char **argv) {
    FILE *program_handle;
    char *program_buffer[NUM_FILES];
    char *program_log;
-   const char *file_name[] = {PROGRAM_FILE_0, PROGRAM_FILE_1};
+   const char *file_name[] = {PROGRAM_FILE_0, PROGRAM_FILE_1, PROGRAM_FILE_2};
    const char options[] = "-cl-finite-math-only -cl-no-signed-zeros";  
    size_t program_size[NUM_FILES];
    size_t log_size;
@@ -251,8 +256,9 @@ int main(int argc, char **argv) {
    }
 
    // allocate memory
-   grayscale = (unsigned char*)malloc(sizeof(unsigned char)*width*height*4);
-   output = (unsigned char*)malloc(sizeof(unsigned char)*width*height*4);
+   resized = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+   grayscale = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+   output = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
 
    // Create command queue
    cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
@@ -267,12 +273,17 @@ int main(int argc, char **argv) {
       perror("0 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
-   cl_mem grayscale_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, width * height * 4 * sizeof(unsigned char), NULL, &err);
+   cl_mem resized_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
+   if(err < 0) {
+      perror("0 Couldn't create memory buffers on the device");
+      return EXIT_FAILURE;   
+   }
+   cl_mem grayscale_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
       perror("1 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
-   cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
+   cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
       perror("2 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
@@ -280,8 +291,9 @@ int main(int argc, char **argv) {
 
    // Copy buffers to the device
    err = clEnqueueWriteBuffer(command_queue, input_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, resized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
    
    if(err < 0) {
       perror("Couldn't copy memory buffers to the device");
@@ -290,55 +302,76 @@ int main(int argc, char **argv) {
 
    // Create kernel
    cl_kernel kernel0 = clCreateKernel(program, KERNEL_NAME_0, &err);
+   if(err < 0) {
+      perror("0 Couldn't create kernel");
+      return EXIT_FAILURE;   
+   }
    cl_kernel kernel1 = clCreateKernel(program, KERNEL_NAME_1, &err);
    if(err < 0) {
-      perror("Couldn't create kernel");
+      perror("1 Couldn't create kernel");
+      return EXIT_FAILURE;   
+   }
+   cl_kernel kernel2 = clCreateKernel(program, KERNEL_NAME_2, &err);
+   if(err < 0) {
+      perror("2 Couldn't create kernel");
       return EXIT_FAILURE;   
    }
 
    // Set kernel arguments
-   err = clSetKernelArg(kernel0, 0, sizeof(cl_mem), (void*)&input_clmem);
+   err = clSetKernelArg(kernel2, 0, sizeof(cl_mem), (void*)&input_clmem);
    if(err < 0) {
       perror("0 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
-   err = clSetKernelArg(kernel0, 1, sizeof(cl_mem), (void*)&grayscale_clmem);
+   err = clSetKernelArg(kernel2, 1, sizeof(cl_mem), (void*)&resized_clmem);
    if(err < 0) {
       perror("1 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
-   err = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&grayscale_clmem);
+   err = clSetKernelArg(kernel0, 0, sizeof(cl_mem), (void*)&resized_clmem);
    if(err < 0) {
       perror("2 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
-   err = clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&output_clmem);
+   err = clSetKernelArg(kernel0, 1, sizeof(cl_mem), (void*)&grayscale_clmem);
    if(err < 0) {
       perror("3 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
-   err = clSetKernelArg(kernel1, 2, sizeof(unsigned int), &width);
+   err = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&grayscale_clmem);
    if(err < 0) {
       perror("4 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
-   err = clSetKernelArg(kernel1, 3, sizeof(unsigned int), &height);
+   err = clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&output_clmem);
    if(err < 0) {
       perror("5 Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+   err = clSetKernelArg(kernel1, 2, sizeof(unsigned int), &resizedWidth);
+   if(err < 0) {
+      perror("6 Couldn't set kernel arguments");
+      return EXIT_FAILURE;   
+   }
+   err = clSetKernelArg(kernel1, 3, sizeof(unsigned int), &resizedHeight);
+   if(err < 0) {
+      perror("7 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
 
     start = clock();
 
    // Execute kernel on the device
-   size_t global_size = width*height*4;
-   size_t local_size = 10;
-   cl_event event_list[1];
-   err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size, &local_size, 0, NULL, &event_list[0]);
+   size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
+   size_t global_work_offset[2] = {0, 0};
+   size_t global_size_resized = resizedWidth*resizedHeight*4;
+   cl_event event_list[2];
+   err = clEnqueueNDRangeKernel(command_queue, kernel2, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
    if(err < 0) {
       perror("0 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
+   err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size_resized, NULL, 1, event_list, &event_list[1]);
 
    end = clock();
    elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
@@ -348,15 +381,20 @@ int main(int argc, char **argv) {
    err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size, &local_size, 1, event_list, NULL);
    if(err < 0) {
       perror("1 Error in clEnqueueNDRangeKernel");
-      return EXIT_FAILURE;   
+      return EXIT_FAILURE;
    }
 
    end = clock();
    elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
    printf("\nTime taken to filter image: %lf seconds", elapsed_time);
+   err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size_resized, NULL, 2, event_list, NULL);
+   if(err < 0) {
+      perror("2 Error in clEnqueueNDRangeKernel");
+      return EXIT_FAILURE;   
+   }
    
    // Read results
-   err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, width*height*4*sizeof(unsigned char), output, 0, NULL, NULL);
+   err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*4*sizeof(unsigned char), output, 0, NULL, NULL);
    if(err < 0) {
       perror("Error in clEnqueueReadBuffer");
       return EXIT_FAILURE;
@@ -374,7 +412,7 @@ int main(int argc, char **argv) {
    
    // output result
    start = clock();
-   encodeImage(argv[2], output, &width, &height);
+   encodeImage(argv[2], output, &resizedWidth, &resizedHeight);
 
    end = clock();
    elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
@@ -387,9 +425,11 @@ int main(int argc, char **argv) {
    }
    err = clReleaseKernel(kernel0);
    err = clReleaseKernel(kernel1);
+   err = clReleaseKernel(kernel2);
    err = clReleaseProgram(program);
    err = clReleaseMemObject(input_clmem);
    err = clReleaseMemObject(grayscale_clmem);
+   err = clReleaseMemObject(resized_clmem);
    err = clReleaseMemObject(output_clmem);
    err = clReleaseCommandQueue(command_queue);
    err = clReleaseContext(context);
@@ -398,6 +438,7 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;   
    }
    free(image);
+   free(resized);
    free(grayscale);
    free(output);
 

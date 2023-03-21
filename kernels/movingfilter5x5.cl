@@ -3,13 +3,6 @@ __kernel void movingfilter5x5(__global uchar* input,
                         __private uint width,
                         __private uint height) {
    
-   /*uchar filterMatrix[] = {
-      1, 1, 0, 1, 1,
-      1, 0, 1, 0, 1,
-      0, 1, 1, 1, 0,
-      1, 0, 1, 0, 1,
-      1, 1, 0, 1, 1
-   };*/
    uchar filterMatrix[] = {
       0, 0, 0, 0, 0,
       0, 0, 0, 0, 0,
@@ -17,6 +10,13 @@ __kernel void movingfilter5x5(__global uchar* input,
       0, 0, 0, 0, 0,
       0, 0, 0, 0, 0
    };
+   /*uchar filterMatrix[] = {
+      1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1
+   };*/
    ushort filterWidth = 5;
    ushort filterHeight = 5;
    uint imgWidth = width*4;
