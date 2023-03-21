@@ -10,9 +10,9 @@
 #include <stdbool.h>
 #include <inttypes.h>
 #include <string.h>
+#include <time.h>
 #include <CL/cl.h>
 #include "helpers.h"
-
 
 int main(int argc, char **argv) {
 
@@ -27,7 +27,13 @@ int main(int argc, char **argv) {
    unsigned char* grayscale = 0;
    unsigned char* output = 0;
    unsigned width, height;
+
+   clock_t start = clock();
    decodeImage(inputimg, &image, &width, &height);
+   clock_t end = clock();
+
+   double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
+   printf("Time taken to load the image: %lf seconds", elapsed_time);
 
    /* Host/device data structures */
    cl_platform_id platform;
@@ -42,6 +48,7 @@ int main(int argc, char **argv) {
    cl_bool device_available, compiler_available;
    cl_uint char_width;
    cl_uint max_compute_units, max_work_item_dim;
+   cl_bool img_support;
 
    /* Identify a platform */
    err = clGetPlatformIDs(1, &platform, NULL);			
@@ -116,6 +123,14 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;
    }
 
+   /* Check device image support */
+   err = clGetDeviceInfo(dev, CL_DEVICE_IMAGE_SUPPORT, 		
+      sizeof(cl_bool), &img_support, NULL);			
+   if(err < 0) {		
+      perror("Couldn't check device opencl version");
+      return EXIT_FAILURE;
+   }
+
    /* Access device preferred vector width in chars */
    err = clGetDeviceInfo(dev, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, 		
       sizeof(char_width), &char_width, NULL);			
@@ -170,6 +185,7 @@ int main(int argc, char **argv) {
    printf("DEVICE AVAILABLE: %d\nCOMPILER AVAILABLE: %d\n", device_available, compiler_available);
    printf("PREFERRED VECTOR WIDTH: %u chars\nMAX COMPUTE UNITS: %u\nMAX WORK ITEM DIMENSIONS: %u\n", char_width, max_compute_units, max_work_item_dim);
    printf("HIGHEST SUPPORTED OPENCL VERSION: %s\nDEVICE OPENCL VERSION: %s\n", highest_version, device_version);
+   printf("CL_DEVICE_IMAGE_SUPPORT: %d\n", img_support);
    printf("\n------------------------------------------\n");
 
 
@@ -312,6 +328,8 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;   
    }
 
+    start = clock();
+
    // Execute kernel on the device
    size_t global_size = width*height*4;
    size_t local_size = 10;
@@ -321,18 +339,30 @@ int main(int argc, char **argv) {
       perror("0 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
+
+   end = clock();
+   elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
+   printf("\nTime taken to convert to grayscale: %lf seconds", elapsed_time);
+
+   start = clock();
    err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size, &local_size, 1, event_list, NULL);
    if(err < 0) {
       perror("1 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
+
+   end = clock();
+   elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
+   printf("\nTime taken to filter image: %lf seconds", elapsed_time);
    
    // Read results
    err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, width*height*4*sizeof(unsigned char), output, 0, NULL, NULL);
    if(err < 0) {
       perror("Error in clEnqueueReadBuffer");
-      return EXIT_FAILURE;   
+      return EXIT_FAILURE;
    }
+
+
 
    // Clean up and wait for all the commands to complete
    err = clFlush(command_queue);
@@ -343,7 +373,13 @@ int main(int argc, char **argv) {
    }
    
    // output result
+   start = clock();
    encodeImage(argv[2], output, &width, &height);
+
+   end = clock();
+   elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
+   printf("\nTime taken to encode image: %lf seconds", elapsed_time);
+
 
    /* Deallocate resources */
    for(unsigned i = 0; i < NUM_FILES; i++) {
