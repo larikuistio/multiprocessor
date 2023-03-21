@@ -406,7 +406,11 @@ int main(int argc, char **argv) {
    
    // output result
    start = clock();
-   encodeImage(argv[2], output, &resizedWidth, &resizedHeight);
+
+
+   unsigned char* image5 = 0;
+   convertToRGB(output, &image5, &resizedWidth, &resizedHeight);
+   encodeImage(outputimg, image5, &resizedWidth, &resizedHeight);
 
    end = clock();
    elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
