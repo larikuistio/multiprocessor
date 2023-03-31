@@ -7,6 +7,7 @@
 #define MIN_DISPARITY 0
 #define THRESHOLD 2
 #define B 9
+#define NEIGHBORHOOD_SIZE 256
 
 unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height)
 {
@@ -33,7 +34,7 @@ unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short
     }
 }
 
-int crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, unsigned short width, unsigned short height, unsigned threshold)
+unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, unsigned short width, unsigned short height, unsigned threshold)
 {
 
 	unsigned char* result_map = malloc(width*heigth);
@@ -49,11 +50,12 @@ int crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, unsigned sh
 	return result_map;
 }
 
-int occlusionFill(void)
-{
+int occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsigned neighborhood_size) {
+
+
 }
 
-int normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
+void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 
 	unsigned max = 0;
 	unsigned min = UCHAR_MAX;
@@ -67,7 +69,7 @@ int normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 		}
 	}
 	for (i = 0; i < width*height; i++) {
-		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min)
+		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min);
 	}
 }
 
@@ -76,7 +78,7 @@ int main(int argc, char **argv)
 
     if (argc < 2)
     {
-        printf("provide input and output image files names as arguments\n");
+        printf("provide input left and input right and output image filenames as arguments\n");
         return EXIT_FAILURE;
     }
 
