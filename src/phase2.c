@@ -28,14 +28,10 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        if((i + x - d) < 4 || (i + x - d) >= width-4 || (j + y) < 4 || (j + y) >= height-4)
-                        {
-                            continue;
-                        }
-                        else
+                        if(!((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height))
                         {
                             window_avg_l += left[(j + y) * width + (i + x)];
-                            window_avg_r += right[(j + y) * width + (i + x - d)];
+                            window_avg_r += right[(j + y) * width + (i + x)];
                         }
                     }
                 }
@@ -53,19 +49,26 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        if((i + x - d) < 0 || (i + x - d) >= width || (j + y) < 0 || (j + y) >= height)
+                        if(!((i + x - d) < 0 || (i + x - d) >= width || (j + y) < 0 || (j + y) >= height))
                         {
-                            continue;
+                            right_std = (right[(j + y) * width + (i + x - d)] - window_avg_r);
                         }
                         else
                         {
-                            printf("%d\n", (j + y) * width + (i + x));
-                            left_std = (left[(j + y) * width + (i + x)] - window_avg_l);
-                            right_std = (right[(j + y) * width + (i + x - d)] - window_avg_r);
-                            numerator += left_std * right_std;
-                            denominator_l += left_std * left_std;
-                            denominator_r += right_std * right_std;
+                            right_std = 0;
                         }
+                        if(!((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height))
+                        {
+                            //printf("%d\n", (j + y) * width + (i + x));
+                            left_std = (left[(j + y) * width + (i + x)] - window_avg_l);
+                        }
+                        else
+                        {
+                            left_std = 0;
+                        }
+                        numerator += left_std * right_std;
+                        denominator_l += left_std * left_std;
+                        denominator_r += right_std * right_std;
                     }
                 }
                 zncc_val = numerator / (sqrt(denominator_l) * sqrt(denominator_r));
@@ -79,6 +82,7 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
             disparity_image[j * width + i] = best_disparity;
         }
     }
+    return disparity_image;
 }
 
 unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, unsigned short width, unsigned short height, unsigned threshold)
@@ -125,7 +129,7 @@ int occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsi
 					// If nothing found in search area widen area
 					if (sum == 0) continue;
 
-					size_t search_avg = sum / (search_area*2+1)**2;
+					size_t search_avg = sum / pow((search_area*2+1), 2);
 					if (search_avg == 0) search_avg = 1;
 					disp_map[j * width + i] = search_avg;
 					break;
