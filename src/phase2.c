@@ -10,12 +10,16 @@
 #define B 9
 #define NEIGHBORHOOD_SIZE 256
 
-unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height, unsigned short min_d, unsigned short max_d)
+unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height, unsigned short min_d, unsigned short max_d)
 {
+    unsigned char* disparity_image = calloc(width*height, sizeof(unsigned char));
+
     for (size_t j = 0; j < height; j++)
     {
         for (size_t i = 0; i < width; i++)
         {
+            unsigned best_disparity = 0;
+            double best_zncc = 0.0; 
             for (size_t d = min_d; d < max_d; d++)
             {
                 unsigned window_avg_l = 0;
@@ -64,9 +68,14 @@ unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short
                     }
                 }
                 zncc_val = numerator / (sqrt(denominator_l) * sqrt(denominator_r));
+
+                if(zncc_val > best_zncc)
+                {
+                    best_disparity = d;
+                    best_zncc = zncc_val;
+                }
             }
-
-
+            disparity_image[j * width + i] = best_disparity;
         }
     }
 }
@@ -89,7 +98,34 @@ unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, 
 
 int occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsigned neighborhood_size) {
 
-
+    for (size_t j = 0; j < height; j++)
+    {
+        for (size_t i = 0; i < width; i++)
+        {
+            if(disp_map[j * width + i] == 0)
+            {
+                unsigned biggest_neighbour = 0;
+                for(int y = -(neighborhood_size-1)/2; y < (neighborhood_size-1)/2; y++)
+                {
+                    for(int x = -(neighborhood_size-1)/2; x < (neighborhood_size-1)/2; x++)
+                    {
+                        if((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            if(disp_map[(j + y) * width + (i + x)] > biggest_neighbour)
+                            {
+                                biggest_neighbour = disp_map[(j + y) * width + (i + x)];
+                            }
+                        }
+                    }
+                }
+                disp_map[(j + y) * width + (i + x)] = biggest_neighbour;
+            }
+        }
+    }
 }
 
 void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
@@ -148,7 +184,9 @@ int main(int argc, char **argv)
     normalize(disparityLR, resizedWidth, resizedHeight);
     normalize(disparityRL, resizedWidth, resizedHeight);
 
-    // disparityCC = crossChecking(disparityLR, disparityRL, &resizedWidth, &resizedHeight);
+    disparityCC = crossChecking(disparityLR, disparityRL, &resizedWidth, &resizedHeight);
+
+    //disparityOcclusion = occlusionFill()
 
     encodeImage("disparityLR.png", disparityLR, &resizedWidth, &resizedHeight)
     encodeImage("disparityRL.png", disparityRL, &resizedWidth, &resizedHeight)
