@@ -4,13 +4,18 @@
 
 
 
-int calcZNCC(void) {
+int calcZNCC() {
 
 }
 
 
-int crossCheck(void) {
-
+int crossCheck(unsigned char left, unsigned char image, unsigned short threshold, unsigned short width, unsigned short height) {
+  
+  for(size_t j = 0; j < height; j++) {
+    for(size_t i = 0; i < width; i++) {
+      for(size_t d = MA_DISPARI)
+    }
+  }
 }
 
 
