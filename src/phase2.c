@@ -2,19 +2,20 @@
 #include <stdlib.h>
 #include "helpers.h"
 #include <limits.h>
+#include <math.h>
 
 #define MAX_DISPARITY 64
 #define MIN_DISPARITY 0
 #define THRESHOLD 2
 #define B 9
 
-unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height)
+unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height, unsigned short min_d, unsigned short max_d)
 {
     for (size_t j = 0; j < height; j++)
     {
         for (size_t i = 0; i < width; i++)
         {
-            for (size_t d = 0; d < MAX_DISPARITY; d++)
+            for (size_t d = min_d; d < max_d; d++)
             {
                 unsigned int window_avg_l = 0;
                 unsigned int window_avg_r = 0;
@@ -22,13 +23,49 @@ unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        window_avg_l += left[(j + y) * width + (i + x)];
-                        window_avg_l += left[(j + y) * width + (i + x)];
+                        if((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            window_avg_l += left[(j + y) * width + (i + x)];
+                            window_avg_r += right[(j + y) * width + (i + x - d)];
+                        }
                     }
                 }
-                window_avg_l = B*B;
-                window_avg_r = B*B;
+                window_avg_l /= B*B;
+                window_avg_r /= B*B;
+
+
+                unsigned numerator = 0;
+                unsigned denominator_l = 0;
+                unsigned denominator_r = 0;
+                double zncc_val = 0.0;
+                unsigned left_std = 0;
+                unsigned right_std = 0;
+                for(int y = -(B-1)/2; y < (B-1)/2; y++)
+                {
+                    for(int x = -(B-1)/2; x < (B-1)/2; x++)
+                    {
+                        if((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            left_std = (left[(j + y) * width + (i + x)] - window_avg_l);
+                            right_std = (right[(j + y) * width + (i + x - d)] - window_avg_r);
+                            numerator += left_std * right_std;
+                            denominator_l += left_std * left_std;
+                            denominator_r += right_std * right_std;
+                        }
+                    }
+                }
+                zncc_val = numerator / (sqrt(denominator_l) * sqrt(denominator_r));
             }
+
+
         }
     }
 }
