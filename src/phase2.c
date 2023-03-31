@@ -28,7 +28,7 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        if((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height)
+                        if((i + x - d) < 4 || (i + x - d) >= width-4 || (j + y) < 4 || (j + y) >= height-4)
                         {
                             continue;
                         }
@@ -53,12 +53,13 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        if((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height)
+                        if((i + x - d) < 0 || (i + x - d) >= width || (j + y) < 0 || (j + y) >= height)
                         {
                             continue;
                         }
                         else
                         {
+                            printf("%d\n", (j + y) * width + (i + x));
                             left_std = (left[(j + y) * width + (i + x)] - window_avg_l);
                             right_std = (right[(j + y) * width + (i + x - d)] - window_avg_r);
                             numerator += left_std * right_std;
