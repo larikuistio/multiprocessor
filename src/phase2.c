@@ -8,6 +8,7 @@
 #define MIN_DISPARITY 0
 #define THRESHOLD 2
 #define B 9
+#define NEIGHBORHOOD_SIZE 256
 
 unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height, unsigned short min_d, unsigned short max_d)
 {
@@ -17,8 +18,8 @@ unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short
         {
             for (size_t d = min_d; d < max_d; d++)
             {
-                unsigned int window_avg_l = 0;
-                unsigned int window_avg_r = 0;
+                unsigned window_avg_l = 0;
+                unsigned window_avg_r = 0;
                 for(int y = -(B-1)/2; y < (B-1)/2; y++)
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
@@ -70,33 +71,28 @@ unsigned char calcZNCC(unsigned char *left, unsigned char *right, unsigned short
     }
 }
 
-int crossCheck(unsigned char *left, unsigned char *image, unsigned short width, unsigned short height)
+unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, unsigned short width, unsigned short height, unsigned threshold)
 {
 
-    for (size_t j = 0; j < height; j++)
-    {
-        for (size_t i = 0; i < width; i++)
-        {
-            for (size_t d = 0; d < MAX_DISPARITY; d++)
-            {
-                unsigned int sum = 0;
-                for(int y = B/2; y < B/2; y++)
-                {
-                    for(int x = B/2; x < B/2; x++)
-                    {
-                        sum += 
-                    }
-                }
-            }
-        }
-    }
+	unsigned char* result_map = malloc(width*heigth);
+
+	for (int i = 0; i < width*height; i++) {
+		if (abs(disp_map_1[i]-disp_map_2[i] > threshold)) {
+			result_map[i] = 0;
+		}
+		else {
+			result_map[i] = disp_map_1[i];
+		}
+	}
+	return result_map;
 }
 
-int occlusionFill(void)
-{
+int occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsigned neighborhood_size) {
+
+
 }
 
-int normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
+void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 
 	unsigned max = 0;
 	unsigned min = UCHAR_MAX;
@@ -110,7 +106,7 @@ int normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 		}
 	}
 	for (i = 0; i < width*height; i++) {
-		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min)
+		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min);
 	}
 }
 
@@ -119,7 +115,7 @@ int main(int argc, char **argv)
 
     if (argc < 2)
     {
-        printf("provide input and output image files names as arguments\n");
+        printf("provide input left and input right and output image filenames as arguments\n");
         return EXIT_FAILURE;
     }
 
@@ -139,15 +135,15 @@ int main(int argc, char **argv)
 
     unsigned char *disparityLR unsigned char *disparityRL
 
-        decodeImage(inputimg_r, &image_r, &width, &height);
+    decodeImage(inputimg_r, &image_r, &width, &height);
     decodeImage(inputimg_l, &image_l, &width, &height);
     resizeImage(image_r, &rzd_image_r, &width, &height, &resizedWidth, &resizedHeight);
     resizeImage(image_l, &rzd_image_l, &width, &height, &resizedWidth, &resizedHeight);
     convertToGrayscale(rzd_image_r, &grayscale_r, &resizedWidth, &resizedHeight);
     convertToGrayscale(rzd_image_l, &grayscale_l, &resizedWidth, &resizedHeight);
 
-    disparityLR = zncc(grayscale_r, grayscale_l, &resizedWidth, &resizedHeight, 9);
-    disparityRL = zncc(grayscale_l, grayscale_r, &resizedWidth, &resizedHeight, 9);
+    disparityLR = zncc(grayscale_l, grayscale_r, &resizedWidth, &resizedHeight, MIN_DISPARITY, MAX_DISPARITY);
+    disparityRL = zncc(grayscale_r, grayscale_l, &resizedWidth, &resizedHeight, -MAX_DISPARITY, MIN_DISPARITY);
 
     normalize(disparityLR, resizedWidth, resizedHeight);
     normalize(disparityRL, resizedWidth, resizedHeight);
