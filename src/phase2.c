@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "helpers.h"
+#include <limits.h>
 
 #define MAX_DISPARITY 64
 #define MIN_DISPARITY 0
@@ -23,6 +24,24 @@ int crossCheck(unsigned char left, unsigned char image, unsigned short threshold
 
 int occlusionFill(void) {
 
+}
+
+int normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
+
+	unsigned max = 0;
+	unsigned min = UCHAR_MAX;
+
+	for (int i = 0; i < width*height; i++) {
+		if (disparity_img[i] > max) {
+			max = disparity_img[i];
+		}
+		if (disparity_img[i] < min) {
+			min = disparity_img[i];
+		}
+	}
+	for (i = 0; i < width*height; i++) {
+		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min)
+	}
 }
 
 int main(int argc, char **argv) {
@@ -59,8 +78,13 @@ int main(int argc, char **argv) {
     disparityLR = zncc(grayscale_r, grayscale_l, &resizedWidth, &resizedHeight, 9);
     disparityRL = zncc(grayscale_l, grayscale_r, &resizedWidth, &resizedHeight, 9);
 
-    disparityCC = crossChecking(disparityLR, disparityRL, &resizedWidth, &resizedHeight);
+    normalize(disparityLR, resizedWidth, resizedHeight);
+    normalize(disparityRL, resizedWidth, resizedHeight);
 
+    // disparityCC = crossChecking(disparityLR, disparityRL, &resizedWidth, &resizedHeight);
+
+    encodeImage("disparityLR.png", disparityLR, &resizedWidth, &resizedHeight)
+    encodeImage("disparityRL.png", disparityRL, &resizedWidth, &resizedHeight)
 
     free(image_r);
     free(image_l);
