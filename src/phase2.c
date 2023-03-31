@@ -49,7 +49,7 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        if(!((i + x - d) < 0 || (i + x - d) >= width || (j + y) < 0 || (j + y) >= height))
+                        if( ((i + x) < 0) || ((i + x) >= width) || ((j + y) < 0) || ((j + y) >= height) || (i+x-d < 0) || (i+x-d >= width) )
                         {
                             right_std = (right[(j + y) * width + (i + x - d)] - window_avg_r);
                         }
@@ -101,7 +101,7 @@ unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, 
 	return result_map;
 }
 
-int occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsigned neighborhood_size) {
+unsigned char* occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsigned neighborhood_size) {
 
 	unsigned char* result = malloc(width*height);
 
@@ -131,12 +131,13 @@ int occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsi
 
 					size_t search_avg = sum / pow((search_area*2+1), 2);
 					if (search_avg == 0) search_avg = 1;
-					disp_map[j * width + i] = search_avg;
+					result[j * width + i] = search_avg;
 					break;
 				}
             }
         }
     }
+	return result;
 }
 
 void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
@@ -144,7 +145,7 @@ void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 	unsigned max = 0;
 	unsigned min = UCHAR_MAX;
 
-	for (int i = 0; i < width*height; i++) {
+	for (unsigned i = 0; i < width*height; i++) {
 		if (disparity_img[i] > max) {
 			max = disparity_img[i];
 		}
@@ -152,7 +153,7 @@ void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 			min = disparity_img[i];
 		}
 	}
-	for (int i = 0; i < width*height; i++) {
+	for (unsigned i = 0; i < width*height; i++) {
 		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min);
 	}
 }
@@ -168,7 +169,7 @@ int main(int argc, char **argv)
 
     const char *inputimg_r = argv[1];
     const char *inputimg_l = argv[2];
-    const char *outputimg = argv[3];
+    // const char *outputimg = argv[3];
 
     unsigned char *image_r = 0;
     unsigned char *image_l = 0;
