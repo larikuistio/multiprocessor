@@ -98,31 +98,37 @@ unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, 
 
 int occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsigned neighborhood_size) {
 
-    for (size_t j = 0; j < height; j++)
-    {
-        for (size_t i = 0; i < width; i++)
-        {
-            if(disp_map[j * width + i] == 0)
-            {
-                unsigned biggest_neighbour = 0;
-                for(int y = -(neighborhood_size-1)/2; y < (neighborhood_size-1)/2; y++)
-                {
-                    for(int x = -(neighborhood_size-1)/2; x < (neighborhood_size-1)/2; x++)
-                    {
-                        if((i + x) < 0 || (i + x) >= width || (j + y) < 0 || (j + y) >= height)
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            if(disp_map[(j + y) * width + (i + x)] > biggest_neighbour)
-                            {
-                                biggest_neighbour = disp_map[(j + y) * width + (i + x)];
-                            }
-                        }
-                    }
-                }
-                disp_map[(j) * width + (i)] = biggest_neighbour;
+	unsigned char* result = malloc(width*height);
+
+    for (size_t j = 0; j < height; j++) {
+        for (size_t i = 0; i < width; i++) {
+			result[j * width + i] = disp_map[j * width + i];
+
+            if(disp_map[j * width + i] == 0) {
+
+				// Searching the neighborhood of the pixel
+				for (size_t search_area = 1; search_area < (neighborhood_size/2); search_area++) {
+
+					// Sum all the intensities in search area around pixel
+					size_t sum = 0;
+					for(size_t y = -search_area; y < search_area; y++) {
+						for(size_t x = -search_area; x < search_area; x++) {
+							// If the pixel we are searching around
+							if (y == 0 && x == 0) continue;
+							// If searched pixel OOB dont take into account
+							if ( (i + x < 0) || (i + x >= width) || (j + y < 0) || (j + y >= height)) 
+								continue;
+							sum += disp_map[(j+y)*width+(i+x)];
+						}
+					}
+					// If nothing found in search area widen area
+					if (sum == 0) continue;
+
+					size_t search_avg = sum / (search_area*2+1)**2;
+					if (search_avg == 0) search_avg = 1;
+					disp_map[j * width + i] = search_avg;
+					break;
+				}
             }
         }
     }
