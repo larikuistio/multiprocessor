@@ -20,6 +20,10 @@ int occlusionFill(void) {
 
 }
 
+int normalize(void) {
+
+}
+
 int main(int argc, char **argv) {
 
     if (argc < 2) {
@@ -54,7 +58,11 @@ int main(int argc, char **argv) {
     disparityLR = zncc(grayscale_r, grayscale_l, &resizedWidth, &resizedHeight, 9);
     disparityRL = zncc(grayscale_l, grayscale_r, &resizedWidth, &resizedHeight, 9);
 
-    disparityCC = crossChecking(disparityLR, disparityRL, &resizedWidth, &resizedHeight);
+    normalize(disparityLR, &resizedWidth, &resizedHeight);
+    normalize(disparityRL, &resizedWidth, &resizedHeight);
+
+    // disparityCC = crossChecking(disparityLR, disparityRL, &resizedWidth, &resizedHeight);
+
 
 
     free(image_r);
