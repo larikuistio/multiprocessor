@@ -63,7 +63,8 @@ int main(int argc, char **argv) {
 
     // disparityCC = crossChecking(disparityLR, disparityRL, &resizedWidth, &resizedHeight);
 
-
+    encodeImage("disparityLR.png", disparityLR, &resizedWidth, &resizedHeight)
+    encodeImage("disparityRL.png", disparityRL, &resizedWidth, &resizedHeight)
 
     free(image_r);
     free(image_l);
