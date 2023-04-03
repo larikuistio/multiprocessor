@@ -10,7 +10,7 @@
 #define B 9
 #define NEIGHBORHOOD_SIZE 256
 
-unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height, unsigned short min_d, unsigned short max_d)
+unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height, int min_d, int max_d)
 {
     unsigned char* disparity_image = calloc(width*height, sizeof(unsigned char));
 
@@ -19,8 +19,8 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
         for (size_t i = 0; i < width; i++)
         {
             unsigned best_disparity = 0;
-            double best_zncc = 0.0; 
-            for (size_t d = min_d; d < max_d; d++)
+            double best_zncc = 0.0;
+            for (int d = min_d; d < max_d; d++)
             {
                 unsigned window_avg_l = 0;
                 unsigned window_avg_r = 0;
@@ -49,9 +49,10 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        if( ((i + x) < 0) || ((i + x) >= width) || ((j + y) < 0) || ((j + y) >= height) || (i+x-d < 0) || (i+x-d >= width) )
+                        if( !((i + x) < 0) && !((i + x) >= width) && !((j + y) < 0) && !((j + y) >= height) && !(i+x-d < 0) && !(i+x-d >= width) )
                         {
-                            right_std = (right[(j + y) * width + (i + x - d)] - window_avg_r);
+                            
+                            right_std = right[(j + y) * width + (i + x - d)] - window_avg_r;
                         }
                         else
                         {
@@ -181,9 +182,9 @@ int main(int argc, char **argv)
 
     unsigned width, height, resizedWidth, resizedHeight;
 
-    unsigned char *disparityLR;
-    unsigned char *disparityRL;
-    unsigned char *disparityCC;
+    unsigned char *disparityLR = NULL;
+    unsigned char *disparityRL = NULL;
+    unsigned char *disparityCC = NULL;
 
     decodeImage(inputimg_r, &image_r, &width, &height);
     decodeImage(inputimg_l, &image_l, &width, &height);
@@ -195,15 +196,19 @@ int main(int argc, char **argv)
     disparityLR = calcZNCC(grayscale_l, grayscale_r, resizedWidth, resizedHeight, MIN_DISPARITY, MAX_DISPARITY);
     disparityRL = calcZNCC(grayscale_r, grayscale_l, resizedWidth, resizedHeight, -MAX_DISPARITY, MIN_DISPARITY);
 
+    // disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, 2);
+
     normalize(disparityLR, resizedWidth, resizedHeight);
     normalize(disparityRL, resizedWidth, resizedHeight);
-
-    disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, 8);
-
+    // normalize(disparityCC, resizedWidth, resizedHeight);    
+    
     //disparityOcclusion = occlusionFill()
 
-    encodeImage("disparityLR.png", disparityLR, &resizedWidth, &resizedHeight);
-    encodeImage("disparityRL.png", disparityRL, &resizedWidth, &resizedHeight);
+
+    lodepng_encode_file("resized_left.png", disparityRL, resizedWidth, resizedHeight, LCT_GREY, 8);
+    lodepng_encode_file("resized_right.png", disparityLR, resizedWidth, resizedHeight, LCT_GREY, 8);
+    // encodeImage("disparityLR.png", disparityLR, &resizedWidth, &resizedHeight);
+    // encodeImage("disparityRL.png", disparityRL, &resizedWidth, &resizedHeight);
 
     free(image_r);
     free(image_l);
