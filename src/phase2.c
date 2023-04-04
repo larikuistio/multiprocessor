@@ -4,13 +4,14 @@
 #include <limits.h>
 #include <math.h>
 
-#define MAX_DISPARITY 64
+#define MAX_DISPARITY 65
 #define MIN_DISPARITY 0
-#define THRESHOLD 2
+#define THRESHOLD 32
 #define B 9
 #define NEIGHBORHOOD_SIZE 256
 
-unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, unsigned short height, int min_d, int max_d)
+unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned short width, 
+    unsigned short height, int min_d, int max_d)
 {
     unsigned char* disparity_image = calloc(width*height, sizeof(unsigned char));
 
@@ -18,7 +19,7 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
     {
         for (size_t i = 0; i < width; i++)
         {
-            unsigned best_disparity = 0;
+            int best_disparity = 0;
             double best_zncc = 0.0;
             for (int d = min_d; d < max_d; d++)
             {
@@ -49,7 +50,8 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
                 {
                     for(int x = -(B-1)/2; x < (B-1)/2; x++)
                     {
-                        if( !((i + x) < 0) && !((i + x) >= width) && !((j + y) < 0) && !((j + y) >= height) && !(i+x-d < 0) && !(i+x-d >= width) )
+                        if( !((i + x) < 0) && !((i + x) >= width) && !((j + y) < 0) 
+                            && !((j + y) >= height) && !(i+x-d < 0) && !(i+x-d >= width) )
                         {
                             
                             right_std = right[(j + y) * width + (i + x - d)] - window_avg_r;
@@ -76,23 +78,24 @@ unsigned char* calcZNCC(unsigned char *left, unsigned char *right, unsigned shor
 
                 if(zncc_val > best_zncc)
                 {
-                    best_disparity = d;
+                    best_disparity = (unsigned)d;
                     best_zncc = zncc_val;
                 }
             }
-            disparity_image[j * width + i] = best_disparity;
+            disparity_image[j * width + i] = abs(best_disparity);
         }
     }
     return disparity_image;
 }
 
-unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, unsigned short width, unsigned short height, unsigned threshold)
+unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, 
+    unsigned short width, unsigned short height, unsigned threshold)
 {
 
 	unsigned char* result_map = malloc(width*height);
 
 	for (int i = 0; i < width*height; i++) {
-		if (abs(disp_map_1[i]-disp_map_2[i] > threshold)) {
+		if ((unsigned)abs(disp_map_1[i]-disp_map_2[i]) > threshold) {
 			result_map[i] = 0;
 		}
 		else {
@@ -102,7 +105,8 @@ unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2, 
 	return result_map;
 }
 
-unsigned char* occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, unsigned neighborhood_size) {
+unsigned char* occlusionFill(unsigned char* disp_map, unsigned width, unsigned height, 
+    unsigned neighborhood_size) {
 
 	unsigned char* result = malloc(width*height);
 
@@ -111,18 +115,20 @@ unsigned char* occlusionFill(unsigned char* disp_map, unsigned width, unsigned h
 			result[j * width + i] = disp_map[j * width + i];
 
             if(disp_map[j * width + i] == 0) {
-
+                
 				// Searching the neighborhood of the pixel
-				for (size_t search_area = 1; search_area < (neighborhood_size/2); search_area++) {
-
+				for (int search_area = 1; search_area < ((int)neighborhood_size/2); search_area++) {
+                    
 					// Sum all the intensities in search area around pixel
 					size_t sum = 0;
-					for(size_t y = -search_area; y < search_area; y++) {
-						for(size_t x = -search_area; x < search_area; x++) {
+					for(int y = -search_area; y < search_area; y++) {
+						for(int x = -search_area; x < search_area; x++) {
+                            
 							// If the pixel we are searching around
 							if (y == 0 && x == 0) continue;
 							// If searched pixel OOB dont take into account
-							if ( (i + x < 0) || (i + x >= width) || (j + y < 0) || (j + y >= height)) 
+							if ( (i + x < 0) || (i + x >= width) 
+                                || (j + y < 0) || (j + y >= height)) 
 								continue;
 							sum += disp_map[(j+y)*width+(i+x)];
 						}
@@ -130,9 +136,10 @@ unsigned char* occlusionFill(unsigned char* disp_map, unsigned width, unsigned h
 					// If nothing found in search area widen area
 					if (sum == 0) continue;
 
-					size_t search_avg = sum / pow((search_area*2+1), 2);
+					unsigned search_avg = sum / pow((search_area*2+1), 2);
 					if (search_avg == 0) search_avg = 1;
 					result[j * width + i] = search_avg;
+                    
 					break;
 				}
             }
@@ -185,6 +192,7 @@ int main(int argc, char **argv)
     unsigned char *disparityLR = NULL;
     unsigned char *disparityRL = NULL;
     unsigned char *disparityCC = NULL;
+    unsigned char *disparityOF = NULL;
 
     decodeImage(inputimg_r, &image_r, &width, &height);
     decodeImage(inputimg_l, &image_l, &width, &height);
@@ -193,22 +201,28 @@ int main(int argc, char **argv)
     convertToGrayscale(rzd_image_r, &grayscale_r, &resizedWidth, &resizedHeight);
     convertToGrayscale(rzd_image_l, &grayscale_l, &resizedWidth, &resizedHeight);
 
-    disparityLR = calcZNCC(grayscale_l, grayscale_r, resizedWidth, resizedHeight, MIN_DISPARITY, MAX_DISPARITY);
-    disparityRL = calcZNCC(grayscale_r, grayscale_l, resizedWidth, resizedHeight, -MAX_DISPARITY, MIN_DISPARITY);
+    disparityLR = calcZNCC(grayscale_l, grayscale_r, resizedWidth, 
+        resizedHeight, MIN_DISPARITY, MAX_DISPARITY);
+    disparityRL = calcZNCC(grayscale_r, grayscale_l, resizedWidth, 
+        resizedHeight, -MAX_DISPARITY, MIN_DISPARITY);
 
-    // disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, 2);
+    
 
     normalize(disparityLR, resizedWidth, resizedHeight);
     normalize(disparityRL, resizedWidth, resizedHeight);
     // normalize(disparityCC, resizedWidth, resizedHeight);    
     
     //disparityOcclusion = occlusionFill()
-
+    disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, 2);
+    normalize(disparityCC, resizedWidth, resizedHeight);
+    disparityOF = occlusionFill(disparityCC, resizedWidth, resizedHeight, NEIGHBORHOOD_SIZE);
 
     lodepng_encode_file("resized_left.png", disparityRL, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("resized_right.png", disparityLR, resizedWidth, resizedHeight, LCT_GREY, 8);
-    // encodeImage("disparityLR.png", disparityLR, &resizedWidth, &resizedHeight);
-    // encodeImage("disparityRL.png", disparityRL, &resizedWidth, &resizedHeight);
+    lodepng_encode_file("crosscheck.png", disparityCC, resizedWidth, resizedHeight, LCT_GREY, 8);
+    lodepng_encode_file("occlusionfill.png", disparityOF, resizedWidth, resizedHeight, LCT_GREY, 8);
+    //encodeImage("disparityLR.png", disparityLR, &resizedWidth, &resizedHeight);
+    //encodeImage("disparityRL.png", disparityRL, &resizedWidth, &resizedHeight);
 
     free(image_r);
     free(image_l);
@@ -219,5 +233,6 @@ int main(int argc, char **argv)
     free(disparityLR);
     free(disparityRL);
     free(disparityCC);
+    free(disparityOF);
     free(output);
 }
