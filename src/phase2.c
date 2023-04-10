@@ -15,7 +15,7 @@ unsigned char* calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, u
 {
 
     uint8_t* disparity_image = (uint8_t *) malloc(w*h);
-    int32_t i, j;
+    uint32_t i, j;
     int32_t i_box, j_box;
     int32_t d;
     int32_t best_disparity;
@@ -102,13 +102,13 @@ unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2,
 	return result_map;
 }
 
-unsigned char* occlusionFill(unsigned char* disp_map, int width, int height, 
+unsigned char* occlusionFill(const unsigned char* disp_map, unsigned width, unsigned height, 
     unsigned neighborhood_size) {
 
 	unsigned char* result = malloc(width*height);
 
-    for (int j = 0; j < height; j++) {
-        for (int i = 0; i < width; i++) {
+    for (unsigned j = 0; j < height; j++) {
+        for (unsigned i = 0; i < width; i++) {
 			result[j * width + i] = disp_map[j * width + i];
 
             if(disp_map[j * width + i] == 0) {
@@ -127,16 +127,14 @@ unsigned char* occlusionFill(unsigned char* disp_map, int width, int height,
 							if ( (i + x < 0) || (i + x >= width) 
                                 || (j + y < 0) || (j + y >= height)) 
 								continue;
-                            // printf("Im here");
 							sum += disp_map[(j+y)*width+(i+x)];
 						}
 					}
 					// If nothing found in search area widen area
 					if (sum == 0) continue;
-
-					unsigned search_avg = sum / pow((search_area*2+1), 2);
-					if (search_avg == 0) search_avg = 1;
-					result[j * width + i] = search_avg;
+					float search_avg = sum / (((search_area*2+1)*4-4));
+					if (search_avg < 1) search_avg = 1;
+					result[j * width + i] = (int) round(search_avg);
                     
 					break;
 				}
@@ -199,22 +197,24 @@ int main(int argc, char **argv)
     convertToGrayscale(rzd_image_r, &grayscale_r, &resizedWidth, &resizedHeight);
     convertToGrayscale(rzd_image_l, &grayscale_l, &resizedWidth, &resizedHeight);
 
-    disparityLR = calcZNCC_new((uint8_t*)grayscale_l, (uint8_t*)grayscale_r, resizedWidth, resizedHeight, 9, 9, MIN_DISPARITY, MAX_DISPARITY);
-    disparityRL = calcZNCC_new((uint8_t*)grayscale_r, (uint8_t*)grayscale_l, resizedWidth, resizedHeight, 9, 9, -MAX_DISPARITY, MIN_DISPARITY);
-
+    disparityLR = calcZNCC((uint8_t*)grayscale_l, (uint8_t*)grayscale_r, resizedWidth, resizedHeight, 9, 9, MIN_DISPARITY, MAX_DISPARITY);
+    disparityRL = calcZNCC((uint8_t*)grayscale_r, (uint8_t*)grayscale_l, resizedWidth, resizedHeight, 9, 9, -MAX_DISPARITY, MIN_DISPARITY);
     
-    // disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, 2);
-    // disparityOF = occlusionFill(disparityCC, resizedWidth, resizedHeight, NEIGHBORHOOD_SIZE);
+    // lodepng_decode_file(&disparityRL, &resizedWidth, &resizedHeight, "resized_left.png", LCT_GREY, 8);
+    // lodepng_decode_file(&disparityLR, &resizedWidth, &resizedHeight, "resized_right.png", LCT_GREY, 8);
+
+    disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, 2);
+    disparityOF = occlusionFill(disparityCC, resizedWidth, resizedHeight, NEIGHBORHOOD_SIZE);
 
     normalize(disparityLR, resizedWidth, resizedHeight);
     normalize(disparityRL, resizedWidth, resizedHeight);
-    // normalize(disparityCC, resizedWidth, resizedHeight);
-    // normalize(disparityOF, resizedWidth, resizedHeight);
+    normalize(disparityCC, resizedWidth, resizedHeight);
+    normalize(disparityOF, resizedWidth, resizedHeight);
 
     lodepng_encode_file("resized_left.png", disparityRL, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("resized_right.png", disparityLR, resizedWidth, resizedHeight, LCT_GREY, 8);
-    // lodepng_encode_file("crosscheck.png", disparityCC, resizedWidth, resizedHeight, LCT_GREY, 8);
-    // lodepng_encode_file("occlusionfill.png", disparityOF, resizedWidth, resizedHeight, LCT_GREY, 8);
+    lodepng_encode_file("crosscheck.png", disparityCC, resizedWidth, resizedHeight, LCT_GREY, 8);
+    lodepng_encode_file("occlusionfill.png", disparityOF, resizedWidth, resizedHeight, LCT_GREY, 8);
 
     free(image_r);
     free(image_l);
