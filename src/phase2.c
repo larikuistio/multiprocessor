@@ -11,7 +11,7 @@
 #define B 15
 #define NEIGHBORHOOD_SIZE 256
 
-unsigned char* calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_t h, int32_t bsx, int32_t bsy, int32_t min_d, int32_t max_d)
+uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_t h, int32_t bsx, int32_t bsy, int32_t min_d, int32_t max_d)
 {
 
     uint8_t* disparity_image = (uint8_t *) malloc(w*h);
@@ -173,7 +173,6 @@ int main(int argc, char **argv)
 
     const char *inputimg_l = argv[1];
     const char *inputimg_r = argv[2];
-    // const char *outputimg = argv[3];
 
     unsigned char *image_r = 0;
     unsigned char *image_l = 0;
@@ -211,8 +210,8 @@ int main(int argc, char **argv)
     normalize(disparityCC, resizedWidth, resizedHeight);
     normalize(disparityOF, resizedWidth, resizedHeight);
 
-    lodepng_encode_file("resized_left.png", disparityRL, resizedWidth, resizedHeight, LCT_GREY, 8);
-    lodepng_encode_file("resized_right.png", disparityLR, resizedWidth, resizedHeight, LCT_GREY, 8);
+    lodepng_encode_file("resized_left.png", disparityLR, resizedWidth, resizedHeight, LCT_GREY, 8);
+    lodepng_encode_file("resized_right.png", disparityRL, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("crosscheck.png", disparityCC, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("occlusionfill.png", disparityOF, resizedWidth, resizedHeight, LCT_GREY, 8);
 
