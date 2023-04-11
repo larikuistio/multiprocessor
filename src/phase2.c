@@ -7,11 +7,11 @@
 
 #define MAX_DISPARITY 65
 #define MIN_DISPARITY 0
-#define THRESHOLD 32
+#define THRESHOLD 2
 #define B 15
 #define NEIGHBORHOOD_SIZE 256
 
-uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_t h, int32_t bsx, int32_t bsy, int32_t min_d, int32_t max_d)
+uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_t h, int32_t b, int32_t min_d, int32_t max_d)
 {
 
     uint8_t* disparity_image = (uint8_t *) malloc(w*h);
@@ -19,7 +19,7 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
     int32_t i_box, j_box;
     int32_t d;
     int32_t best_disparity;
-    int32_t box_size = bsx * bsy;
+    int32_t box_size = b*b;
 
     float window_avg_l, window_avg_r;
     float std_l, std_r;
@@ -38,8 +38,8 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
                 window_avg_l = 0;
                 window_avg_r = 0;
 
-                for (i_box = -(bsx - 1 / 2) ; i_box <= (bsx - 1 / 2); i_box++) {
-                    for (j_box = -(bsy - 1 / 2) ; j_box <= (bsy - 1 / 2); j_box++) {
+                for (i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
+                    for (j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
                         if (!(i + i_box >= 0) || !(i + i_box < w) || !(j + j_box >= 0) || !(j + j_box < h) || !(i + i_box - d >= 0) || !(i + i_box - d < w))
                         {
                             continue;
@@ -56,8 +56,8 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
                 std_r = 0;
                 score = 0;
 
-                for (i_box = -(bsx - 1 / 2) ; i_box <= (bsx - 1 / 2); i_box++) {
-                    for (j_box = -(bsy - 1 / 2) ; j_box <= (bsy - 1 / 2); j_box++) {
+                for (i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
+                    for (j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
                         if (!(i + i_box >= 0) || !(i + i_box < w) || !(j + j_box >= 0) || !(j + j_box < h) || !(i + i_box - d >= 0) || !(i + i_box - d < w))
                         {
                             continue;
@@ -201,13 +201,13 @@ int main(int argc, char **argv)
     convertToGrayscale(rzd_image_r, &grayscale_r, &resizedWidth, &resizedHeight);
     convertToGrayscale(rzd_image_l, &grayscale_l, &resizedWidth, &resizedHeight);
 
-    disparityLR = calcZNCC((uint8_t*)grayscale_l, (uint8_t*)grayscale_r, resizedWidth, resizedHeight, 9, 9, MIN_DISPARITY, MAX_DISPARITY);
-    disparityRL = calcZNCC((uint8_t*)grayscale_r, (uint8_t*)grayscale_l, resizedWidth, resizedHeight, 9, 9, -MAX_DISPARITY, MIN_DISPARITY);
+    disparityLR = calcZNCC((uint8_t*)grayscale_l, (uint8_t*)grayscale_r, resizedWidth, resizedHeight, B, MIN_DISPARITY, MAX_DISPARITY);
+    disparityRL = calcZNCC((uint8_t*)grayscale_r, (uint8_t*)grayscale_l, resizedWidth, resizedHeight, B, -MAX_DISPARITY, MIN_DISPARITY);
     
     // lodepng_decode_file(&disparityRL, &resizedWidth, &resizedHeight, "resized_left.png", LCT_GREY, 8);
     // lodepng_decode_file(&disparityLR, &resizedWidth, &resizedHeight, "resized_right.png", LCT_GREY, 8);
 
-    disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, 2);
+    disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, THRESHOLD);
     disparityOF = occlusionFill(disparityCC, resizedWidth, resizedHeight, NEIGHBORHOOD_SIZE);
 
     normalize(disparityLR, resizedWidth, resizedHeight);
