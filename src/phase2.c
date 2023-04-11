@@ -9,7 +9,7 @@
 #define MAX_DISPARITY 65
 #define MIN_DISPARITY 0
 #define THRESHOLD 2
-#define B 15
+#define B 5
 #define NEIGHBORHOOD_SIZE 256
 
 uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_t h, int32_t b, int32_t min_d, int32_t max_d)
