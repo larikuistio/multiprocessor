@@ -4,6 +4,7 @@
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
+#include <time.h>
 
 #define MAX_DISPARITY 65
 #define MIN_DISPARITY 0
@@ -194,31 +195,69 @@ int main(int argc, char **argv)
     unsigned char *disparityCC = NULL;
     unsigned char *disparityOF = NULL;
 
+    clock_t start, end;
+    double cpu_time_used;
+
+    start = clock();
     decodeImage(inputimg_r, &image_r, &width, &height);
     decodeImage(inputimg_l, &image_l, &width, &height);
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for reading images from files: %lf\n", cpu_time_used);
+
+    start = clock();
     resizeImage(image_r, &rzd_image_r, &width, &height, &resizedWidth, &resizedHeight);
     resizeImage(image_l, &rzd_image_l, &width, &height, &resizedWidth, &resizedHeight);
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for resizing images: %lf\n", cpu_time_used);
+    
+    start = clock();
     convertToGrayscale(rzd_image_r, &grayscale_r, &resizedWidth, &resizedHeight);
     convertToGrayscale(rzd_image_l, &grayscale_l, &resizedWidth, &resizedHeight);
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for converting images to grayscale: %lf\n", cpu_time_used);
 
+    start = clock();
     disparityLR = calcZNCC((uint8_t*)grayscale_l, (uint8_t*)grayscale_r, resizedWidth, resizedHeight, B, MIN_DISPARITY, MAX_DISPARITY);
     disparityRL = calcZNCC((uint8_t*)grayscale_r, (uint8_t*)grayscale_l, resizedWidth, resizedHeight, B, -MAX_DISPARITY, MIN_DISPARITY);
-    
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for calculating zncc: %lf\n", cpu_time_used);
+
     // lodepng_decode_file(&disparityRL, &resizedWidth, &resizedHeight, "resized_left.png", LCT_GREY, 8);
     // lodepng_decode_file(&disparityLR, &resizedWidth, &resizedHeight, "resized_right.png", LCT_GREY, 8);
 
+    start = clock();
     disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, THRESHOLD);
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for computing crosscheck: %lf\n", cpu_time_used);
+    
+    start = clock();
     disparityOF = occlusionFill(disparityCC, resizedWidth, resizedHeight, NEIGHBORHOOD_SIZE);
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for occlusion fill: %lf\n", cpu_time_used);
 
+    start = clock();
     normalize(disparityLR, resizedWidth, resizedHeight);
     normalize(disparityRL, resizedWidth, resizedHeight);
     normalize(disparityCC, resizedWidth, resizedHeight);
     normalize(disparityOF, resizedWidth, resizedHeight);
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for normalizing results: %lf\n", cpu_time_used);
 
+    start = clock();
     lodepng_encode_file("resized_left.png", disparityLR, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("resized_right.png", disparityRL, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("crosscheck.png", disparityCC, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("occlusionfill.png", disparityOF, resizedWidth, resizedHeight, LCT_GREY, 8);
+    end = clock();
+    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
+    printf("cpu time used for writing results to files: %lf\n", cpu_time_used);
 
     free(image_r);
     free(image_l);
