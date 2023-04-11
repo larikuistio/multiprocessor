@@ -118,6 +118,7 @@ unsigned char* occlusionFill(const unsigned char* disp_map, unsigned width, unsi
                     
 					// Sum all the intensities in search area around pixel
 					int sum = 0;
+                    int count = 0;
 					for(int y = -search_area; y < search_area; y++) {
 						for(int x = -search_area; x < search_area; x++) {
                             
@@ -127,12 +128,16 @@ unsigned char* occlusionFill(const unsigned char* disp_map, unsigned width, unsi
 							if ( (i + x < 0) || (i + x >= width) 
                                 || (j + y < 0) || (j + y >= height)) 
 								continue;
-							sum += disp_map[(j+y)*width+(i+x)];
+
+                            unsigned char value = disp_map[(j+y)*width+(i+x)];
+                            if (value != 0) count += 1;
+							sum += value;
+
 						}
 					}
 					// If nothing found in search area widen area
 					if (sum == 0) continue;
-					float search_avg = sum / (((search_area*2+1)*4-4));
+					float search_avg = sum / count;
 					if (search_avg < 1) search_avg = 1;
 					result[j * width + i] = (int) round(search_avg);
                     
