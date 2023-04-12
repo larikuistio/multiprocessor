@@ -4,7 +4,9 @@
 #include <limits.h>
 #include <math.h>
 #include <stdint.h>
-#include <time.h>
+#include <sys/time.h>
+// #include <time.h>
+#include <omp.h>
 
 #define MAX_DISPARITY 65
 #define MIN_DISPARITY 0
@@ -16,56 +18,45 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
 {
 
     uint8_t* disparity_image = (uint8_t *) malloc(w*h);
-    uint32_t i, j;
-    int32_t i_box, j_box;
-    int32_t d;
-    int32_t best_disparity;
-    int32_t box_size = b*b;
-
-    float window_avg_l, window_avg_r;
-    float std_l, std_r;
-    float dev_l, dev_r;
-    float score;
-    float best_score;
 
 
-    for (i = 0; i < w; i++) {
-        for (j = 0; j < h; j++) {
+#pragma omp parallel for shared(left, right, disparity_image) firstprivate(w,h,min_d,max_d, b)
+{
+    for (uint32_t i = 0; i < w; i++) {
+        for (uint32_t j = 0; j < h; j++) {
 
-            best_disparity = max_d;
-            best_score = -1;
+            int32_t best_disparity = max_d;
+            float best_score = -1;
 
-            for (d = min_d; d <= max_d; d++) {
-                window_avg_l = 0;
-                window_avg_r = 0;
-
-                for (i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
-                    for (j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
+            for (int32_t d = min_d; d <= max_d; d++) {
+                float window_avg_l = 0;
+                float window_avg_r = 0;
+                for (int32_t i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
+                    for (int32_t j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
                         if (!(i + i_box >= 0) || !(i + i_box < w) || !(j + j_box >= 0) || !(j + j_box < h) || !(i + i_box - d >= 0) || !(i + i_box - d < w))
                         {
                             continue;
                         }
-
                         window_avg_l += left[(j + j_box) * w + (i + i_box)];
                         window_avg_r += right[(j + j_box) * w + (i + i_box - d)];
                     }
                 }
-                window_avg_l /= box_size;
-                window_avg_r /= box_size;
+                window_avg_l /= b*b;
+                window_avg_r /= b*b;
 
-                std_l = 0;
-                std_r = 0;
-                score = 0;
+                float std_l = 0;
+                float std_r = 0;
+                float score = 0;
 
-                for (i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
-                    for (j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
+                for (int32_t i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
+                    for (int32_t j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
                         if (!(i + i_box >= 0) || !(i + i_box < w) || !(j + j_box >= 0) || !(j + j_box < h) || !(i + i_box - d >= 0) || !(i + i_box - d < w))
                         {
                             continue;
                         }
 
-                        dev_l = left[(j + j_box)* w + (i + i_box)] - window_avg_l;
-                        dev_r = right[(j + j_box) * w + (i + i_box - d)] - window_avg_r;
+                        float dev_l = left[(j + j_box)* w + (i + i_box)] - window_avg_l;
+                        float dev_r = right[(j + j_box) * w + (i + i_box - d)] - window_avg_r;
 
                         std_l += dev_l * dev_l;
                         std_r += dev_r * dev_r;
@@ -83,6 +74,7 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
             disparity_image[j * w + i] = (uint8_t)abs(best_disparity);
         }
     }
+}
     return disparity_image;
 }
 
@@ -168,6 +160,16 @@ void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 	}
 }
 
+double queryProfiler(void)
+{
+    struct timeval time;
+    gettimeofday(&time, 0);
+    long seconds = time.tv_sec;
+    long microseconds = time.tv_usec;
+    double total_time = seconds + microseconds*1e-6;
+    return total_time;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -195,69 +197,59 @@ int main(int argc, char **argv)
     unsigned char *disparityCC = NULL;
     unsigned char *disparityOF = NULL;
 
-    clock_t start, end;
-    double cpu_time_used;
+    double start, end;
 
-    start = clock();
+    start = queryProfiler();
     decodeImage(inputimg_r, &image_r, &width, &height);
     decodeImage(inputimg_l, &image_l, &width, &height);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for reading images from files: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for reading the images: %f\n", end-start);
 
-    start = clock();
+
+    start = queryProfiler();
     resizeImage(image_r, &rzd_image_r, &width, &height, &resizedWidth, &resizedHeight);
     resizeImage(image_l, &rzd_image_l, &width, &height, &resizedWidth, &resizedHeight);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for resizing images: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for resizing the images: %f\n", end-start);    
     
-    start = clock();
+    start = queryProfiler();
     convertToGrayscale(rzd_image_r, &grayscale_r, &resizedWidth, &resizedHeight);
     convertToGrayscale(rzd_image_l, &grayscale_l, &resizedWidth, &resizedHeight);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for converting images to grayscale: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for converting to grayscale: %f\n", end-start);
 
-    start = clock();
+    // Start measuring time
+    start = queryProfiler();
     disparityLR = calcZNCC((uint8_t*)grayscale_l, (uint8_t*)grayscale_r, resizedWidth, resizedHeight, B, MIN_DISPARITY, MAX_DISPARITY);
     disparityRL = calcZNCC((uint8_t*)grayscale_r, (uint8_t*)grayscale_l, resizedWidth, resizedHeight, B, -MAX_DISPARITY, MIN_DISPARITY);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for calculating zncc: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for calculating zncc: %f\n", end-start);
 
-    // lodepng_decode_file(&disparityRL, &resizedWidth, &resizedHeight, "resized_left.png", LCT_GREY, 8);
-    // lodepng_decode_file(&disparityLR, &resizedWidth, &resizedHeight, "resized_right.png", LCT_GREY, 8);
-
-    start = clock();
+    start = queryProfiler();
     disparityCC = crossCheck(disparityLR, disparityRL, resizedWidth, resizedHeight, THRESHOLD);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for computing crosscheck: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for cross checking: %f\n", end-start);
     
-    start = clock();
+    start = queryProfiler();
     disparityOF = occlusionFill(disparityCC, resizedWidth, resizedHeight, NEIGHBORHOOD_SIZE);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for occlusion fill: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for occlusion filling: %f\n", end-start);
 
-    start = clock();
+    start = queryProfiler();
     normalize(disparityLR, resizedWidth, resizedHeight);
     normalize(disparityRL, resizedWidth, resizedHeight);
     normalize(disparityCC, resizedWidth, resizedHeight);
     normalize(disparityOF, resizedWidth, resizedHeight);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for normalizing results: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for normalizing images: %f\n", end-start);
 
-    start = clock();
+    start = queryProfiler();
     lodepng_encode_file("resized_left.png", disparityLR, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("resized_right.png", disparityRL, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("crosscheck.png", disparityCC, resizedWidth, resizedHeight, LCT_GREY, 8);
     lodepng_encode_file("occlusionfill.png", disparityOF, resizedWidth, resizedHeight, LCT_GREY, 8);
-    end = clock();
-    cpu_time_used = ((double)(end-start)) / CLOCKS_PER_SEC;
-    printf("cpu time used for writing results to files: %lf\n", cpu_time_used);
+    end = queryProfiler();
+    printf("real time used for writing results to files: %f\n", end-start);
 
     free(image_r);
     free(image_l);
