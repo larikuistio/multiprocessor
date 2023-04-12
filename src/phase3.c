@@ -5,47 +5,46 @@
 #include <math.h>
 #include <stdint.h>
 #include <time.h>
+#include <omp.h>
 
 #define MAX_DISPARITY 65
 #define MIN_DISPARITY 0
 #define THRESHOLD 2
 #define B 5
-#define NEIGHBORHOOD_SIZE 256
+#define NEIGHBORHOOD_SIZE 64
 
 uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_t h, int32_t b, int32_t min_d, int32_t max_d)
 {
 
     uint8_t* disparity_image = (uint8_t *) malloc(w*h);
-    uint32_t i, j;
-    int32_t i_box, j_box;
-    int32_t d;
-    int32_t best_disparity;
-    int32_t box_size = b*b;
 
-    float window_avg_l, window_avg_r;
-    float std_l, std_r;
-    float dev_l, dev_r;
-    float score;
-    float best_score;
-
-
-    for (i = 0; i < w; i++) {
-        for (j = 0; j < h; j++) {
+    #pragma omp parallel for simd
+    for (uint32_t i = 0; i < w; i++) {
+        for (uint32_t j = 0; j < h; j++) {
+            
+            int32_t box_size = b*b;
+            int32_t best_disparity;
+            float window_avg_l, window_avg_r;
+            float std_l, std_r;
+            float dev_l, dev_r;
+            float score;
+            float best_score;
 
             best_disparity = max_d;
             best_score = -1;
 
-            for (d = min_d; d <= max_d; d++) {
+            for (int32_t d = min_d; d <= max_d; d++) {
+
                 window_avg_l = 0;
                 window_avg_r = 0;
 
-                for (i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
-                    for (j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
+                for (int32_t i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
+                    for (int32_t j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
                         if (!(i + i_box >= 0) || !(i + i_box < w) || !(j + j_box >= 0) || !(j + j_box < h) || !(i + i_box - d >= 0) || !(i + i_box - d < w))
                         {
                             continue;
                         }
-
+                        
                         window_avg_l += left[(j + j_box) * w + (i + i_box)];
                         window_avg_r += right[(j + j_box) * w + (i + i_box - d)];
                     }
@@ -57,8 +56,8 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
                 std_r = 0;
                 score = 0;
 
-                for (i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
-                    for (j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
+                for (int32_t i_box = -(b - 1 / 2) ; i_box <= (b - 1 / 2); i_box++) {
+                    for (int32_t j_box = -(b - 1 / 2) ; j_box <= (b - 1 / 2); j_box++) {
                         if (!(i + i_box >= 0) || !(i + i_box < w) || !(j + j_box >= 0) || !(j + j_box < h) || !(i + i_box - d >= 0) || !(i + i_box - d < w))
                         {
                             continue;
@@ -80,9 +79,13 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
                     best_disparity = d;
                 }
             }
+
             disparity_image[j * w + i] = (uint8_t)abs(best_disparity);
         }
+
     }
+
+
     return disparity_image;
 }
 
@@ -91,7 +94,7 @@ unsigned char* crossCheck(unsigned char *disp_map_1, unsigned char *disp_map_2,
 {
 
 	unsigned char* result_map = malloc(width*height);
-
+    #pragma omp parallel for simd
 	for (int i = 0; i < width*height; i++) {
 		if ((unsigned)abs(disp_map_1[i]-disp_map_2[i]) > threshold) {
 			result_map[i] = 0;
@@ -107,10 +110,10 @@ unsigned char* occlusionFill(const unsigned char* disp_map, unsigned width, unsi
     unsigned neighborhood_size) {
 
 	unsigned char* result = malloc(width*height);
-
+    #pragma omp parallel for simd
     for (unsigned j = 0; j < height; j++) {
         for (unsigned i = 0; i < width; i++) {
-			result[j * width + i] = disp_map[j * width + i];
+			
 
             if(disp_map[j * width + i] == 0) {
                 
@@ -145,6 +148,10 @@ unsigned char* occlusionFill(const unsigned char* disp_map, unsigned width, unsi
 					break;
 				}
             }
+            else
+            {
+                result[j * width + i] = disp_map[j * width + i];
+            }
         }
     }
 	return result;
@@ -154,15 +161,16 @@ void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 
 	unsigned max = 0;
 	unsigned min = UCHAR_MAX;
-
+    #pragma omp parallel for simd
 	for (unsigned i = 0; i < width*height; i++) {
 		if (disparity_img[i] > max) {
 			max = disparity_img[i];
 		}
 		if (disparity_img[i] < min) {
 			min = disparity_img[i];
-		}
-	}
+        }
+    }
+	#pragma omp parallel for simd
 	for (unsigned i = 0; i < width*height; i++) {
 		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min);
 	}
