@@ -6,10 +6,6 @@
 #define KERNEL_NAME_1 "zncc"
 #define KERNEL_NAME_2 "resizeimage"
 
-#define MAX_DISPARITY 65
-#define MIN_DISPARITY 0
-#define B 5
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,11 +28,18 @@ int main(int argc, char **argv)
 	const char* left = argv[1];
 	const char* right = argv[2];
 	const char* outputimg = argv[3];
-	unsigned char* image = 0;
-	unsigned char* grayscale = 0;
+	unsigned char* image1 = 0;
+	unsigned char* image2 = 0;
+	unsigned char* grayscale1 = 0;
+	unsigned char* grayscale2 = 0;
 	unsigned char* output = 0;
-	unsigned char* resized = 0;
+	unsigned char* resized1 = 0;
+	unsigned char* resized2 = 0;
 	unsigned width, height, resizedWidth, resizedHeight;
+
+	int MAX_DISPARITY = 65;
+	int MIN_DISPARITY = 0;
+	int B = 5;
 
 	clock_t start = clock();
 	decodeImage(left, &image1, &width, &height);
@@ -272,8 +275,10 @@ int main(int argc, char **argv)
 	}
 
 	// allocate memory
-	resized = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
-	grayscale = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+	resized1 = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+	resized2 = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+	grayscale1 = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+	grayscale2 = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
 	output = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
 
 	// Create command queue
@@ -323,10 +328,10 @@ int main(int argc, char **argv)
 	// Copy buffers to the device
 	err = clEnqueueWriteBuffer(command_queue, input_clmem1, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image1, 0, NULL, NULL);
 	err = clEnqueueWriteBuffer(command_queue, input_clmem2, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image2, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, resized_clmem1, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, resized_clmem2, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem1, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem2, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, resized_clmem1, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized1, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, resized_clmem2, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized2, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem1, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale1, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem2, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale2, 0, NULL, NULL);
 	err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
 	
 	if(err < 0) {
@@ -431,17 +436,17 @@ int main(int argc, char **argv)
 		perror("7 Couldn't set kernel arguments");
 		return EXIT_FAILURE;   
 	}
-	err = clSetKernelArg(kernel1, 5, sizeof(unsigned int), B);
+	err = clSetKernelArg(kernel1, 5, sizeof(unsigned int), &B);
 	if(err < 0) {
 		perror("7 Couldn't set kernel arguments");
 		return EXIT_FAILURE;   
 	}
-	err = clSetKernelArg(kernel1, 6, sizeof(unsigned int), MIN_DISPARITY);
+	err = clSetKernelArg(kernel1, 6, sizeof(unsigned int), &MIN_DISPARITY);
 	if(err < 0) {
 		perror("7 Couldn't set kernel arguments");
 		return EXIT_FAILURE;   
 	}
-	err = clSetKernelArg(kernel1, 7, sizeof(unsigned int), MAX_DISPARITY);
+	err = clSetKernelArg(kernel1, 7, sizeof(unsigned int), &MAX_DISPARITY);
 	if(err < 0) {
 		perror("7 Couldn't set kernel arguments");
 		return EXIT_FAILURE;   
@@ -505,7 +510,7 @@ int main(int argc, char **argv)
 	
 	// output result
 	start = clock();
-	encodeImage(argv[3], output, &resizedWidth, &resizedHeight);
+	encodeImage(outputimg, output, &resizedWidth, &resizedHeight);
 
 	end = clock();
 	elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
