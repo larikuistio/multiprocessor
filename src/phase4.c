@@ -279,7 +279,7 @@ int main(int argc, char **argv)
 	resized2 = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
 	grayscale1 = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
 	grayscale2 = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
-	output = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+	output = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 
 	// Create command queue
 	cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
@@ -332,7 +332,7 @@ int main(int argc, char **argv)
 	err = clEnqueueWriteBuffer(command_queue, resized_clmem2, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized2, 0, NULL, NULL);
 	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem1, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale1, 0, NULL, NULL);
 	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem2, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale2, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), output, 0, NULL, NULL);
 	
 	if(err < 0) {
 		perror("Couldn't copy memory buffers to the device");
@@ -457,8 +457,9 @@ int main(int argc, char **argv)
 	// Execute kernel on the device
 	size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
 	size_t global_work_offset[2] = {0, 0};
-	size_t global_size_resized = resizedWidth*resizedHeight*4;
-	cl_event event_list[2];
+	size_t global_size_resized[2] = {resizedWidth, resizedHeight};
+   	size_t global_size_resized_asd = resizedWidth*resizedHeight*4;
+	cl_event event_list[6];
 
 	// Resize
 	err = clEnqueueNDRangeKernel(command_queue, kernel2, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
@@ -466,33 +467,33 @@ int main(int argc, char **argv)
 		perror("0 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
-	err = clEnqueueNDRangeKernel(command_queue, kernel22, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
+	err = clEnqueueNDRangeKernel(command_queue, kernel22, 2, global_work_offset, global_size, NULL, 1, event_list, &event_list[1]);
 	if(err < 0) {
 		perror("0 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 
 	// Grayscale
-	err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size_resized, NULL, 1, event_list, &event_list[1]);
+	err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size_resized_asd, NULL, 2, event_list, &event_list[2]);
 	if(err < 0) {
 		perror("1 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
-	err = clEnqueueNDRangeKernel(command_queue, kernel00, 1, NULL, &global_size_resized, NULL, 1, event_list, &event_list[1]);
+	err = clEnqueueNDRangeKernel(command_queue, kernel00, 1, NULL, &global_size_resized_asd, NULL, 3, event_list, &event_list[3]);
 	if(err < 0) {
 		perror("1 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 
 	// ZNCC filter
-	err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size_resized, NULL, 2, event_list, NULL);
+	err = clEnqueueNDRangeKernel(command_queue, kernel1, 2, NULL, global_size_resized, NULL, 4, event_list, &event_list[4]);
 	if(err < 0) {
 		perror("2 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 	
 	// Read results
-	err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*4*sizeof(unsigned char), output, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), output, 5, event_list, NULL);
 	if(err < 0) {
 		perror("Error in clEnqueueReadBuffer");
 		return EXIT_FAILURE;
@@ -510,7 +511,7 @@ int main(int argc, char **argv)
 	
 	// output result
 	start = clock();
-	encodeImage(outputimg, output, &resizedWidth, &resizedHeight);
+   lodepng_encode_file(outputimg, output, resizedWidth, resizedHeight, LCT_GREY, 8);
 
 	end = clock();
 	elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;

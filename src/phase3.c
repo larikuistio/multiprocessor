@@ -21,7 +21,6 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
 
 
 #pragma omp parallel for shared(left, right, disparity_image) firstprivate(w,h,min_d,max_d, b)
-{
     for (uint32_t i = 0; i < w; i++) {
         for (uint32_t j = 0; j < h; j++) {
 
@@ -74,7 +73,7 @@ uint8_t *calcZNCC(const uint8_t *left, const uint8_t *right, uint32_t w, uint32_
             disparity_image[j * w + i] = (uint8_t)abs(best_disparity);
         }
     }
-}
+
     return disparity_image;
 }
 

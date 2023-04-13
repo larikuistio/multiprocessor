@@ -1,4 +1,4 @@
-__kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *disparity_image, int w, int h, int b, int min_d, int max_d)
+__kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *disparity_image, uint w, uint h, uint b, uint min_d, uint max_d)
 {
     const int i = get_global_id(0);
     const int j = get_global_id(1);
@@ -21,8 +21,8 @@ __kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *
         }
 
         
-        window_avg_l /= b*b;
-        window_avg_r /= b*b;
+        window_avg_l = native_divide(window_avg_l, b*b);
+        window_avg_r = native_divide(window_avg_r, b*b);
 
         float std_l = 0;
         float std_r = 0;
@@ -51,5 +51,8 @@ __kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *
             best_disparity = d;
         }
     }
-    disparity_image[j * w + i] = abs(best_disparity);
+    disparity_image[j * w + i] = (uchar)abs(best_disparity);
+    
+    //disparity_image[j * w + i] = (left[j * w + i] + right[j * w + i]) / 2;
+    //disparity_image[j * w + i] = right[j * w + i];
 }
