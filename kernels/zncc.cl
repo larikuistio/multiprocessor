@@ -1,4 +1,4 @@
-__kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *disparity_image, uint w, uint h, uint b, uint min_d, uint max_d)
+__kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *disparity_image, uint w, uint h, int b, int min_d, int max_d)
 {
     const int i = get_global_id(0);
     const int j = get_global_id(1);
@@ -44,7 +44,7 @@ __kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *
             }
         }
 
-        score /= sqrt(std_l) * sqrt(std_r);
+        score = native_divide(score, native_sqrt(std_l) * native_sqrt(std_r));
 
         if (score > best_score) {
             best_score = score;
@@ -52,7 +52,4 @@ __kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *
         }
     }
     disparity_image[j * w + i] = (uchar)abs(best_disparity);
-    
-    //disparity_image[j * w + i] = (left[j * w + i] + right[j * w + i]) / 2;
-    //disparity_image[j * w + i] = right[j * w + i];
 }
