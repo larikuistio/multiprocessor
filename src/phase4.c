@@ -102,6 +102,11 @@ int main(int argc, char **argv)
 	cl_uint char_width;
 	cl_uint max_compute_units, max_work_item_dim;
 	cl_bool img_support;
+	cl_device_local_mem_type local_mem_type;
+	cl_ulong local_mem_size;
+	cl_uint max_clock_frequency;
+	cl_ulong max_constant_buffer_size;
+	size_t max_work_group_size;
 
 	/* Identify a platform */
 	err = clGetPlatformIDs(1, &platform, NULL);			
@@ -232,13 +237,58 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	/* Check device local memory type */
+	err = clGetDeviceInfo(dev, CL_DEVICE_LOCAL_MEM_TYPE, 		
+		sizeof(local_mem_type), &local_mem_type, NULL);			
+	if(err < 0) {		
+		perror("Couldn't check local memory type");
+		return EXIT_FAILURE;
+	}
+
+	/* Check device local memory size */
+	err = clGetDeviceInfo(dev, CL_DEVICE_LOCAL_MEM_SIZE, 		
+		sizeof(local_mem_size), &local_mem_size, NULL);			
+	if(err < 0) {		
+		perror("Couldn't check device local memory size");
+		return EXIT_FAILURE;
+	}
+
+	/*  Check device max clock frequency */
+	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_CLOCK_FREQUENCY, 		
+		sizeof(max_clock_frequency), &max_clock_frequency, NULL);			
+	if(err < 0) {		
+		perror("Couldn't check device max clock frequency");
+		return EXIT_FAILURE;
+	}
+
+	/* Check device max constant buffer size */
+	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE,
+		sizeof(max_constant_buffer_size), &max_constant_buffer_size, NULL);			
+	if(err < 0) {		
+		perror("Couldn't check device  max constant buffer size");
+		return EXIT_FAILURE;
+	}
+
+	/* Check device max work group size */
+	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_WORK_GROUP_SIZE,	
+		sizeof(max_work_group_size), &max_work_group_size, NULL);			
+	if(err < 0) {		
+		perror("Couldn't check device max work group size");
+		return EXIT_FAILURE;
+	}
+
 	printf("\n------------------------------------------\nDEVICE INFORMATION\n\n");
-	printf("NAME: %s\nVENDOR: %s\n\nEXTENSIONS: %s\n\n", name_data, vendor_data, ext_data);
-	printf("GLOBAL MEM SIZE: %lu bytes\nADDRESS BITS: %u\n", global_mem_size, address_bits);
-	printf("DEVICE AVAILABLE: %d\nCOMPILER AVAILABLE: %d\n", device_available, compiler_available);
-	printf("PREFERRED VECTOR WIDTH: %u chars\nMAX COMPUTE UNITS: %u\nMAX WORK ITEM DIMENSIONS: %u\n", char_width, max_compute_units, max_work_item_dim);
-	printf("HIGHEST SUPPORTED OPENCL VERSION: %s\nDEVICE OPENCL VERSION: %s\n", highest_version, device_version);
-	printf("CL_DEVICE_IMAGE_SUPPORT: %d\n", img_support);
+	printf("\nNAME: %s\nVENDOR: %s\n\nEXTENSIONS: %s\n\n", name_data, vendor_data, ext_data);
+	printf("\nGLOBAL MEM SIZE: %lu bytes\nADDRESS BITS: %u", global_mem_size, address_bits);
+	printf("\nDEVICE AVAILABLE: %d\nCOMPILER AVAILABLE: %d", device_available, compiler_available);
+	printf("\nPREFERRED VECTOR WIDTH: %u chars\nMAX COMPUTE UNITS: %u\nMAX WORK ITEM DIMENSIONS: %u", char_width, max_compute_units, max_work_item_dim);
+	printf("\nHIGHEST SUPPORTED OPENCL VERSION: %s\nDEVICE OPENCL VERSION: %s", highest_version, device_version);
+	printf("\nCL_DEVICE_IMAGE_SUPPORT: %d", img_support);
+	printf("\nCL_DEVICE_LOCAL_MEM_TYPE: %d (1=local, 2=global)", local_mem_type);
+	printf("\nCL_DEVICE_LOCAL_MEM_SIZE: %d", local_mem_size);
+	printf("\nCL_DEVICE_MAX_CLOCK_FREQUENCY: %d", max_clock_frequency);
+	printf("\nCL_DEVICE_MAX_CONSTANT_BUFFER_SIZE: %d", max_constant_buffer_size);
+	printf("\nCL_DEVICE_MAX_WORK_GROUP_SIZE: %d", max_work_group_size);
 	printf("\n------------------------------------------\n");
 
 
