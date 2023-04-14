@@ -24,11 +24,14 @@ __kernel void movingfilter5x5(__global uchar* input,
    uint sum = 0;
    uint x = get_global_id(0);
    uint y = 0;
+
+   // Get row by counting how many full rows x has
    while (x > imgWidth) {
       x -= imgWidth;
       y++;
    }
 
+   // If filter box doesnt go OOB
    if (x >= 2 && x <= imgWidth && y >= 2 && y <= imgHeight)
    {
       uint xx = 0;
