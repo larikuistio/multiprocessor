@@ -1,16 +1,18 @@
 __kernel void occlusionfill(__global uchar *disp_map, __global uchar *result, int width, int height, int neighborhood_size)
 {
+    // Get pixel x and y 
     const int i = get_global_id(0);
     const int j = get_global_id(1);
 
     result[j * width + i] = disp_map[j * width + i];
 
+    // If original image value is 0, start filling
     if(disp_map[j * width + i] == 0) {
         
         // Searching the neighborhood of the pixel
         for (int search_area = 1; search_area < ((int)neighborhood_size/2); search_area++) {
             
-            // Sum all the intensities in search area around pixel
+            // Sum all the intensities in a square perimeter around pixel and get the average of pixels with nonzero value
             int sum = 0;
             int count = 0;
             for(int y = -search_area; y < search_area; y++) {
@@ -31,8 +33,8 @@ __kernel void occlusionfill(__global uchar *disp_map, __global uchar *result, in
             }
             // If nothing found in search area widen area
             if (sum == 0) continue;
-            float search_avg = sum / count;
-            if (search_avg < 1) search_avg = 1;
+
+            float search_avg = sum / count;            
             result[j * width + i] = (int) round(search_avg);
             
             break;
