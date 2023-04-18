@@ -1,15 +1,19 @@
 
-#define NUM_FILES 5
+#define NUM_FILES 7
 #define PROGRAM_FILE_0 "kernels/zncc.cl"
 #define PROGRAM_FILE_1 "kernels/grayscale.cl"
 #define PROGRAM_FILE_2 "kernels/resizeimage.cl"
 #define PROGRAM_FILE_3 "kernels/crosscheck.cl"
 #define PROGRAM_FILE_4 "kernels/occlusionfill.cl"
+#define PROGRAM_FILE_5 "kernels/findminmax.cl"
+#define PROGRAM_FILE_6 "kernels/normalize.cl"
 #define KERNEL_NAME_0 "resizeimage"
 #define KERNEL_NAME_1 "grayscale"
 #define KERNEL_NAME_2 "zncc"
 #define KERNEL_NAME_3 "crosscheck"
 #define KERNEL_NAME_4 "occlusionfill"
+#define KERNEL_NAME_5 "findminmax"
+#define KERNEL_NAME_6 "normalize"
 
 
 #include <stdio.h>
@@ -22,6 +26,7 @@
 #include <CL/cl.h>
 #include "helpers.h"
 #include <limits.h>
+#include <sys/time.h>
 
 // ZNCC PARAMETERS
 int MIN_DISPARITY = 0;
@@ -72,7 +77,10 @@ int main(int argc, char **argv)
 	unsigned char* zncc_output_rl = 0;
 	unsigned char* crosscheck = 0;
 	unsigned char* occlusionfill = 0;
+	unsigned char* normalized = 0;
 	unsigned width, height, resizedWidth, resizedHeight;
+	int min = UCHAR_MAX;
+	int max = 0;
 
 
 	clock_t start = clock();
@@ -116,8 +124,8 @@ int main(int argc, char **argv)
 	FILE *program_handle;
 	char *program_buffer[NUM_FILES];
 	char *program_log;
-	const char *file_name[] = {PROGRAM_FILE_0, PROGRAM_FILE_1, PROGRAM_FILE_2, PROGRAM_FILE_3, PROGRAM_FILE_4};
-	const char options[] = "-cl-finite-math-only -cl-no-signed-zeros";  
+	const char *file_name[] = {PROGRAM_FILE_0, PROGRAM_FILE_1, PROGRAM_FILE_2, PROGRAM_FILE_3, PROGRAM_FILE_4, PROGRAM_FILE_5, PROGRAM_FILE_6};
+	const char options[] = "-cl-finite-math-only -cl-no-signed-zeros -cl-std=CL2.0";  
 	size_t program_size[NUM_FILES];
 	size_t log_size;
 
@@ -173,6 +181,9 @@ int main(int argc, char **argv)
 	occlusionfill = 	(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 	zncc_output_lr = 	(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 	zncc_output_rl = 	(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
+	normalized =		(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
+
+
 
 	// Create command queue
 	cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
@@ -189,47 +200,62 @@ int main(int argc, char **argv)
 	}
 	cl_mem input_clmem_r = clCreateBuffer(context, CL_MEM_READ_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("0 Couldn't create memory buffers on the device");
+		perror("1 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem resized_clmem_l = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("0 Couldn't create memory buffers on the device");
+		perror("2 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem resized_clmem_r = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("0 Couldn't create memory buffers on the device");
+		perror("3 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem grayscale_clmem_l = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("1 Couldn't create memory buffers on the device");
+		perror("4 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem grayscale_clmem_r = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("1 Couldn't create memory buffers on the device");
+		perror("5 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem crosscheck_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("2 Couldn't create memory buffers on the device");
+		perror("6 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem occlusionfill_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("2 Couldn't create memory buffers on the device");
+		perror("7 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem zncc_output_clmem_lr = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("2 Couldn't create memory buffers on the device");
+		perror("8 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 	cl_mem zncc_output_clmem_rl = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
-		perror("2 Couldn't create memory buffers on the device");
+		perror("9 Couldn't create memory buffers on the device");
+		return EXIT_FAILURE;   
+	}
+	cl_mem normalized_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
+	if(err < 0) {
+		perror("10 Couldn't create memory buffers on the device");
+		return EXIT_FAILURE;   
+	}
+	cl_mem min_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(unsigned int), NULL, &err);
+	if(err < 0) {
+		perror("11 Couldn't create memory buffers on the device");
+		return EXIT_FAILURE;   
+	}
+	cl_mem max_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(unsigned int), NULL, &err);
+	if(err < 0) {
+		perror("12 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
 
@@ -244,6 +270,9 @@ int main(int argc, char **argv)
 	err = clEnqueueWriteBuffer(command_queue, zncc_output_clmem_rl, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), zncc_output_rl, 0, NULL, NULL);
 	err = clEnqueueWriteBuffer(command_queue, crosscheck_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), crosscheck, 0, NULL, NULL);
 	err = clEnqueueWriteBuffer(command_queue, occlusionfill_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), occlusionfill, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), normalized, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, min_clmem, CL_TRUE, 0, sizeof(int), &min, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, max_clmem, CL_TRUE, 0, sizeof(int), &max, 0, NULL, NULL);
 	
 	if(err < 0) {
 		perror("Couldn't copy memory buffers to the device");
@@ -263,32 +292,42 @@ int main(int argc, char **argv)
 	}
 	cl_kernel grayscale_krnl_1 = clCreateKernel(program, KERNEL_NAME_1, &err);
 	if(err < 0) {
-		perror("0 Couldn't create grayscale kernel");
+		perror("2 Couldn't create grayscale kernel");
 		return EXIT_FAILURE;   
 	}
 	cl_kernel grayscale_krnl_2 = clCreateKernel(program, KERNEL_NAME_1, &err);
 	if(err < 0) {
-		perror("1 Couldn't create grayscale kernel");
+		perror("3 Couldn't create grayscale kernel");
 		return EXIT_FAILURE;   
 	}
 	cl_kernel zncc_krnl_1 = clCreateKernel(program, KERNEL_NAME_2, &err);
 	if(err < 0) {
-		perror("0 Couldn't create zncc kernel");
+		perror("4 Couldn't create zncc kernel");
 		return EXIT_FAILURE;   
 	}
 	cl_kernel zncc_krnl_2 = clCreateKernel(program, KERNEL_NAME_2, &err);
 	if(err < 0) {
-		perror("1 Couldn't create zncc kernel");
+		perror("5 Couldn't create zncc kernel");
 		return EXIT_FAILURE;   
 	}
 	cl_kernel crosscheck_krnl = clCreateKernel(program, KERNEL_NAME_3, &err);
 	if(err < 0) {
-		perror("0 Couldn't create crosscheck kernel");
+		perror("6 Couldn't create crosscheck kernel");
 		return EXIT_FAILURE;   
 	}
 	cl_kernel occlusionfill_krnl = clCreateKernel(program, KERNEL_NAME_4, &err);
 	if(err < 0) {
-		perror("0 Couldn't create occlusion kernel");
+		perror("7 Couldn't create occlusion kernel");
+		return EXIT_FAILURE;   
+	}
+	cl_kernel findminmax_krnl = clCreateKernel(program, KERNEL_NAME_5, &err);
+	if(err < 0) {
+		perror("8 Couldn't create findminmax kernel");
+		return EXIT_FAILURE;   
+	}
+	cl_kernel normalize_krnl = clCreateKernel(program, KERNEL_NAME_6, &err);
+	if(err < 0) {
+		perror("9 Couldn't create normalize kernel");
 		return EXIT_FAILURE;   
 	}
 
@@ -308,182 +347,217 @@ int main(int argc, char **argv)
 	}
 	err = clSetKernelArg(resize_krnl_2, 0, sizeof(cl_mem), (void*)&input_clmem_r);
 	if(err < 0) {
-		perror("0 Couldn't set resize_krnl_2 arguments");
+		perror("2 Couldn't set resize_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(resize_krnl_2, 1, sizeof(cl_mem), (void*)&resized_clmem_r);
 	if(err < 0) {
-		perror("1 Couldn't set resize_krnl_2 arguments");
+		perror("3 Couldn't set resize_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	// Grayscale kernels
 	err = clSetKernelArg(grayscale_krnl_1, 0, sizeof(cl_mem), (void*)&resized_clmem_l);
 	if(err < 0) {
-		perror("0 Couldn't set grayscale_krnl_1 arguments");
+		perror("4 Couldn't set grayscale_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(grayscale_krnl_1, 1, sizeof(cl_mem), (void*)&grayscale_clmem_l);
 	if(err < 0) {
-		perror("1 Couldn't set grayscale_krnl_1 arguments");
+		perror("5 Couldn't set grayscale_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(grayscale_krnl_2, 0, sizeof(cl_mem), (void*)&resized_clmem_r);
 	if(err < 0) {
-		perror("0 Couldn't set grayscale_krnl_2 arguments");
+		perror("6 Couldn't set grayscale_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(grayscale_krnl_2, 1, sizeof(cl_mem), (void*)&grayscale_clmem_r);
 	if(err < 0) {
-		perror("1 Couldn't set grayscale_krnl_2 arguments");
+		perror("7 Couldn't set grayscale_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	// ZNCC kernels
 	err = clSetKernelArg(zncc_krnl_1, 0, sizeof(cl_mem), (void*)&grayscale_clmem_l);
 	if(err < 0) {
-		perror("0 Couldn't set zncc_krnl_1 arguments");
+		perror("8 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_1, 1, sizeof(cl_mem), (void*)&grayscale_clmem_r);
 	if(err < 0) {
-		perror("1 Couldn't set zncc_krnl_1 arguments");
+		perror("9 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_1, 2, sizeof(cl_mem), (void*)&zncc_output_clmem_lr);
 	if(err < 0) {
-		perror("2 Couldn't set zncc_krnl_1 arguments");
+		perror("10 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_1, 3, sizeof(unsigned int), &resizedWidth);
 	if(err < 0) {
-		perror("3 Couldn't set zncc_krnl_1 arguments");
+		perror("11 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_1, 4, sizeof(unsigned int), &resizedHeight);
 	if(err < 0) {
-		perror("4 Couldn't set zncc_krnl_1 arguments");
+		perror("12 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_1, 5, sizeof(unsigned int), &B);
 	if(err < 0) {
-		perror("5 Couldn't set zncc_krnl_1 arguments");
+		perror("13 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_1, 6, sizeof(unsigned int), &MIN_DISPARITY);
 	if(err < 0) {
-		perror("6 Couldn't set zncc_krnl_1 arguments");
+		perror("14 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_1, 7, sizeof(unsigned int), &MAX_DISPARITY);
 	if(err < 0) {
-		perror("7 Couldn't set zncc_krnl_1 arguments");
+		perror("15 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 0, sizeof(cl_mem), (void*)&grayscale_clmem_r);
 	if(err < 0) {
-		perror("0 Couldn't set zncc_krnl_2 arguments");
+		perror("16 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 1, sizeof(cl_mem), (void*)&grayscale_clmem_l);
 	if(err < 0) {
-		perror("1 Couldn't set zncc_krnl_2 arguments");
+		perror("17 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 2, sizeof(cl_mem), (void*)&zncc_output_clmem_rl);
 	if(err < 0) {
-		perror("2 Couldn't set zncc_krnl_2 arguments");
+		perror("18 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 3, sizeof(unsigned int), &resizedWidth);
 	if(err < 0) {
-		perror("3 Couldn't set zncc_krnl_2 arguments");
+		perror("19 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 4, sizeof(unsigned int), &resizedHeight);
 	if(err < 0) {
-		perror("4 Couldn't set zncc_krnl_2 arguments");
+		perror("20 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 5, sizeof(unsigned int), &B);
 	if(err < 0) {
-		perror("5 Couldn't set zncc_krnl_2 arguments");
+		perror("21 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 6, sizeof(unsigned int), &MAX_DISPARITY_NEG);
 	if(err < 0) {
-		perror("6 Couldn't set zncc_krnl_2 arguments");
+		perror("22 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(zncc_krnl_2, 7, sizeof(unsigned int), &MIN_DISPARITY);
 	if(err < 0) {
-		perror("7 Couldn't set zncc_krnl_2 arguments");
+		perror("23 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
 	// Crosscheck kernels
 	err = clSetKernelArg(crosscheck_krnl, 0, sizeof(cl_mem), (void*)&zncc_output_clmem_lr);
 	if(err < 0) {
-		perror("0 Couldn't set crosscheck kernel arguments");
+		perror("24 Couldn't set crosscheck kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(crosscheck_krnl, 1, sizeof(cl_mem), (void*)&zncc_output_clmem_rl);
 	if(err < 0) {
-		perror("1 Couldn't set crosscheck kernel arguments");
+		perror("25 Couldn't set crosscheck kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(crosscheck_krnl, 2, sizeof(cl_mem), (void*)&crosscheck_clmem);
 	if(err < 0) {
-		perror("2 Couldn't set crosscheck kernel arguments");
+		perror("26 Couldn't set crosscheck kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(crosscheck_krnl, 3, sizeof(int), &resizedWidth);
 	if(err < 0) {
-		perror("3 Couldn't set crosscheck kernel arguments");
+		perror("27 Couldn't set crosscheck kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(crosscheck_krnl, 4, sizeof(int), &resizedHeight);
 	if(err < 0) {
-		perror("4 Couldn't set crosscheck kernel arguments");
+		perror("28 Couldn't set crosscheck kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(crosscheck_krnl, 5, sizeof(int), &THRESHOLD);
 	if(err < 0) {
-		perror("5 Couldn't set crosscheck kernel arguments");
+		perror("29 Couldn't set crosscheck kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	// Oclusionfill kernels
 	err = clSetKernelArg(occlusionfill_krnl, 0, sizeof(cl_mem), (void*)&crosscheck_clmem);
 	if(err < 0) {
-		perror("0 Couldn't set occlusionfill kernel arguments");
+		perror("30 Couldn't set occlusionfill kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(occlusionfill_krnl, 1, sizeof(cl_mem), (void*)&occlusionfill_clmem);
 	if(err < 0) {
-		perror("1 Couldn't set occlusionfill kernel arguments");
+		perror("31 Couldn't set occlusionfill kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(occlusionfill_krnl, 2, sizeof(int), &resizedWidth);
 	if(err < 0) {
-		perror("2 Couldn't set occlusionfill kernel arguments");
+		perror("32 Couldn't set occlusionfill kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(occlusionfill_krnl, 3, sizeof(int), &resizedHeight);
 	if(err < 0) {
-		perror("3 Couldn't set occlusionfill kernel arguments");
+		perror("33 Couldn't set occlusionfill kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	err = clSetKernelArg(occlusionfill_krnl, 4, sizeof(int), &NEIGHBORHOOD_SIZE);
 	if(err < 0) {
-		perror("4 Couldn't set occlusionfill kernel arguments");
+		perror("34 Couldn't set occlusionfill kernel arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(findminmax_krnl, 0, sizeof(cl_mem), &occlusionfill_clmem);
+	if(err < 0) {
+		perror("35 Couldn't set findminmax kernel arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(findminmax_krnl, 1, sizeof(cl_mem), &min_clmem);
+	if(err < 0) {
+		perror("36 Couldn't set findminmax kernel arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(findminmax_krnl, 2, sizeof(cl_mem), &max_clmem);
+	if(err < 0) {
+		perror("37 Couldn't set findminmax kernel arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(normalize_krnl, 0, sizeof(cl_mem), &occlusionfill_clmem);
+	if(err < 0) {
+		perror("38 Couldn't set normalize kernel arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(normalize_krnl, 1, sizeof(cl_mem), &normalized_clmem);
+	if(err < 0) {
+		perror("38 Couldn't set normalize kernel arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(normalize_krnl, 2, sizeof(cl_mem), &min_clmem);
+	if(err < 0) {
+		perror("39 Couldn't set normalize kernel arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(normalize_krnl, 3, sizeof(cl_mem), &max_clmem);
+	if(err < 0) {
+		perror("40 Couldn't set normalize kernel arguments");
 		return EXIT_FAILURE;   
 	}
 	
-
+	printf("asd\n");
 
 	// Execute kernel on the device
 	size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
 	size_t global_work_offset[2] = {0, 0};
 	size_t global_size_resized[2] = {resizedWidth, resizedHeight};
    	size_t global_size_resized_asd = resizedWidth*resizedHeight*4;
-	cl_event event_list[11];
+	cl_event event_list[21];
 
 	// Resize
 	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_1, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
@@ -493,50 +567,64 @@ int main(int argc, char **argv)
 	}
 	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_2, 2, global_work_offset, global_size, NULL, 1, event_list, &event_list[1]);
 	if(err < 0) {
-		perror("0 Error in clEnqueueNDRangeKernel");
+		perror("1 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 
 	// Grayscale
 	err = clEnqueueNDRangeKernel(command_queue, grayscale_krnl_1, 1, NULL, &global_size_resized_asd, NULL, 2, event_list, &event_list[2]);
 	if(err < 0) {
-		perror("1 Error in clEnqueueNDRangeKernel");
+		perror("2 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 	err = clEnqueueNDRangeKernel(command_queue, grayscale_krnl_2, 1, NULL, &global_size_resized_asd, NULL, 3, event_list, &event_list[3]);
 	if(err < 0) {
-		perror("1 Error in clEnqueueNDRangeKernel");
+		perror("3 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 
 	// ZNCC filter
 	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 2, NULL, global_size_resized, NULL, 4, event_list, &event_list[4]);
 	if(err < 0) {
-		perror("2 Error in clEnqueueNDRangeKernel");
+		perror("4 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 2, NULL, global_size_resized, NULL, 4, event_list, &event_list[5]);
 	if(err < 0) {
-		perror("2 Error in clEnqueueNDRangeKernel");
+		perror("5 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 
 	// crosscheck
 	err = clEnqueueNDRangeKernel(command_queue, crosscheck_krnl, 1, NULL, &global_size_resized_asd, NULL, 6, event_list, &event_list[6]);
 	if(err < 0) {
-		perror("2 Error in clEnqueueNDRangeKernel");
+		perror("6 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 
 	// occlusionfill
 	err = clEnqueueNDRangeKernel(command_queue, occlusionfill_krnl, 2, NULL, global_size_resized, NULL, 7, event_list, &event_list[7]);
 	if(err < 0) {
-		perror("2 Error in clEnqueueNDRangeKernel");
+		perror("7 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+
+	// findminmax
+	err = clEnqueueNDRangeKernel(command_queue, findminmax_krnl, 1, NULL, &global_size_resized_asd, NULL, 8, event_list, &event_list[8]);
+	if(err < 0) {
+		perror("8 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+
+	// occlusionfill
+	err = clEnqueueNDRangeKernel(command_queue, normalize_krnl, 1, NULL, &global_size_resized_asd, NULL, 9, event_list, &event_list[9]);
+	if(err < 0) {
+		perror("9 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
 	
 	// Read results
-	err = clEnqueueReadBuffer(command_queue, occlusionfill_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), occlusionfill, 8, event_list, NULL);
+	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 10, event_list, NULL);
 	if(err < 0) {
 		perror("Error in clEnqueueReadBuffer");
 		return EXIT_FAILURE;
@@ -555,7 +643,7 @@ int main(int argc, char **argv)
 	// output result
 	start = clock();
 	normalize(occlusionfill, resizedWidth, resizedHeight);
-   	lodepng_encode_file(outputimg, occlusionfill, resizedWidth, resizedHeight, LCT_GREY, 8);
+   	lodepng_encode_file(outputimg, normalized, resizedWidth, resizedHeight, LCT_GREY, 8);
 	end = clock();
 	elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
 	printf("\ncpu time taken to encode image: %lf seconds", elapsed_time);
@@ -581,6 +669,9 @@ int main(int argc, char **argv)
 	err = clReleaseMemObject(occlusionfill_clmem);
 	err = clReleaseMemObject(zncc_output_clmem_lr);
 	err = clReleaseMemObject(zncc_output_clmem_rl);
+	err = clReleaseMemObject(normalized_clmem);
+	err = clReleaseMemObject(min_clmem);
+	err = clReleaseMemObject(max_clmem);
 	err = clReleaseCommandQueue(command_queue);
 	err = clReleaseContext(context);
 	if(err < 0) {
@@ -597,6 +688,7 @@ int main(int argc, char **argv)
 	free(occlusionfill);
 	free(zncc_output_lr);
 	free(zncc_output_rl);
+	free(normalized);
 
 
 	printf("\n\nProgram finished\n");
