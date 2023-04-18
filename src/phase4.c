@@ -717,7 +717,6 @@ int main(int argc, char **argv)
 	// output result
 	startclk = clock();
 	start = queryProfiler();
-	normalize(occlusionfill, resizedWidth, resizedHeight);
    	lodepng_encode_file(outputimg, normalized, resizedWidth, resizedHeight, LCT_GREY, 8);
 	endclk = clock();
 	end = queryProfiler();
