@@ -59,6 +59,10 @@ void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 
 int main(int argc, char **argv)
 	{
+
+	clock_t startprogclk = clock();
+	double startprog = queryProfiler();
+
 	if (argc < 4) {
 		printf("provide 2 input images and one output image filenames as arguments\n");
 		return EXIT_FAILURE;
@@ -83,20 +87,26 @@ int main(int argc, char **argv)
 	int max = 0;
 
 
-	clock_t start = clock();
+	clock_t startclk = clock();
+	double start = queryProfiler();
 	decodeImage(left, &image_l, &width, &height);
 	resizedWidth = width / 4;
 	resizedHeight = height / 4;
-	clock_t end = clock();
-	double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
-	printf("\ncpu time taken to load the image_l: %lf seconds", elapsed_time);
+	clock_t endclk = clock();
+	double end = queryProfiler();
+	double elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken to load the image_l: %lf seconds\n", elapsed_time);
+	printf("real time used to load the image_l: %f\n", end-start);
 
 
-	start = clock();
+	startclk = clock();
+	start = queryProfiler();
 	decodeImage(right, &image_r, &width, &height);
-	end = clock();
-	elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
-	printf("\ncpu time taken to load the image_r: %lf seconds", elapsed_time);
+	endclk = clock();
+	end = queryProfiler();
+	elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken to load the image_r: %lf seconds\n", elapsed_time);
+	printf("real time used to load the image_r: %f\n", end-start);
 
 
 	/* Host/device data structures */
@@ -104,6 +114,10 @@ int main(int argc, char **argv)
 	cl_device_id dev;
 	cl_int err;
 	cl_context context;
+
+	cl_ulong kernelstarttimes[10];
+	cl_ulong kernelendtimes[10];
+	cl_double exectimems[10];
 
 	if(printDeviceInfo(&dev, &platform) == EXIT_FAILURE)
 	{
@@ -186,7 +200,7 @@ int main(int argc, char **argv)
 
 
 	// Create command queue
-	cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
+	cl_command_queue command_queue = clCreateCommandQueue(context, dev, CL_QUEUE_PROFILING_ENABLE, &err);
 	if(err < 0) {
 		perror("Couldn't create command queue");
 		return EXIT_FAILURE;   
@@ -550,7 +564,6 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;   
 	}
 	
-	printf("asd\n");
 
 	// Execute kernel on the device
 	size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
@@ -616,7 +629,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;   
 	}
 
-	// occlusionfill
+	// normalize
 	err = clEnqueueNDRangeKernel(command_queue, normalize_krnl, 1, NULL, &global_size_resized_asd, NULL, 9, event_list, &event_list[9]);
 	if(err < 0) {
 		perror("9 Error in clEnqueueNDRangeKernel");
@@ -630,7 +643,68 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	// profile kernel execution times
+	clWaitForEvents(10, (const cl_event*)&event_list);
 
+	// resize left
+	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[0], NULL);
+	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[0], NULL);
+	exectimems[0] = (cl_double)(kernelendtimes[0] - kernelstarttimes[0])*(cl_double)(1e-06);
+	printf("resize kernel execution time for left image: %lf ms\n", exectimems[0]);
+
+	// resize right
+	clGetEventProfilingInfo(event_list[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[1], NULL);
+	clGetEventProfilingInfo(event_list[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[1], NULL);
+	exectimems[1] = (cl_double)(kernelendtimes[1] - kernelstarttimes[1])*(cl_double)(1e-06);
+	printf("resize kernel execution time for right image: %lf ms\n", exectimems[1]);
+
+	// grayscale left
+	clGetEventProfilingInfo(event_list[2], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[2], NULL);
+	clGetEventProfilingInfo(event_list[2], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[2], NULL);
+	exectimems[2] = (cl_double)(kernelendtimes[2] - kernelstarttimes[2])*(cl_double)(1e-06);
+	printf("grayscale kernel execution time for left image: %lf ms\n", exectimems[2]);
+
+	// grayscale right
+	clGetEventProfilingInfo(event_list[3], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[3], NULL);
+	clGetEventProfilingInfo(event_list[3], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[3], NULL);
+	exectimems[3] = (cl_double)(kernelendtimes[3] - kernelstarttimes[3])*(cl_double)(1e-06);
+	printf("grayscale kernel execution time for right image: %lf ms\n", exectimems[3]);
+
+	// zncc left
+	clGetEventProfilingInfo(event_list[4], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[4], NULL);
+	clGetEventProfilingInfo(event_list[4], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[4], NULL);
+	exectimems[4] = (cl_double)(kernelendtimes[4] - kernelstarttimes[4])*(cl_double)(1e-06);
+	printf("zncc kernel execution time for left image: %lf ms\n", exectimems[4]);
+
+	// zncc right
+	clGetEventProfilingInfo(event_list[5], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[5], NULL);
+	clGetEventProfilingInfo(event_list[5], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[5], NULL);
+	exectimems[5] = (cl_double)(kernelendtimes[5] - kernelstarttimes[5])*(cl_double)(1e-06);
+	printf("zncc kernel execution time for right image: %lf ms\n", exectimems[5]);
+
+	// crosscheck
+	clGetEventProfilingInfo(event_list[6], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[6], NULL);
+	clGetEventProfilingInfo(event_list[6], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[6], NULL);
+	exectimems[6] = (cl_double)(kernelendtimes[6] - kernelstarttimes[6])*(cl_double)(1e-06);
+	printf("crosscheck kernel execution time for right image: %lf ms\n", exectimems[6]);
+
+	// occlusionfill
+	clGetEventProfilingInfo(event_list[7], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[7], NULL);
+	clGetEventProfilingInfo(event_list[7], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[7], NULL);
+	exectimems[7] = (cl_double)(kernelendtimes[7] - kernelstarttimes[7])*(cl_double)(1e-06);
+	printf("occlusionfill kernel execution time for right image: %lf ms\n", exectimems[7]);
+
+	// findminmax
+	clGetEventProfilingInfo(event_list[8], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[8], NULL);
+	clGetEventProfilingInfo(event_list[8], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[8], NULL);
+	exectimems[8] = (cl_double)(kernelendtimes[8] - kernelstarttimes[8])*(cl_double)(1e-06);
+	printf("findminmax kernel execution time for right image: %lf ms\n", exectimems[8]);
+
+	// normalize
+	clGetEventProfilingInfo(event_list[9], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[9], NULL);
+	clGetEventProfilingInfo(event_list[9], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[9], NULL);
+	exectimems[9] = (cl_double)(kernelendtimes[9] - kernelstarttimes[9])*(cl_double)(1e-06);
+	printf("normalize kernel execution time for right image: %lf ms\n", exectimems[9]);
 
 	// Clean up and wait for all the commands to complete
 	err = clFlush(command_queue);
@@ -641,12 +715,15 @@ int main(int argc, char **argv)
 	}
 	
 	// output result
-	start = clock();
+	startclk = clock();
+	start = queryProfiler();
 	normalize(occlusionfill, resizedWidth, resizedHeight);
    	lodepng_encode_file(outputimg, normalized, resizedWidth, resizedHeight, LCT_GREY, 8);
-	end = clock();
-	elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
-	printf("\ncpu time taken to encode image: %lf seconds", elapsed_time);
+	endclk = clock();
+	end = queryProfiler();
+	elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken to encode image: %lf seconds\n", elapsed_time);
+	printf("real time used to encode image: %f\n", end-start);
 
 
 	/* Deallocate resources */
@@ -692,6 +769,14 @@ int main(int argc, char **argv)
 
 
 	printf("\n\nProgram finished\n");
+
+	clock_t endprogclk = clock();
+	double endprog = queryProfiler();
+
+	double elapsed_time_prog = (endprogclk-startprogclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken by program execution: %lf seconds\n", elapsed_time_prog);
+	printf("real time taken by program execution: %f\n", endprog-startprog);
+
 	return EXIT_SUCCESS;
 	}
 

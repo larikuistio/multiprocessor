@@ -347,3 +347,13 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 
 	return EXIT_SUCCESS;
 }
+
+double queryProfiler(void)
+{
+    struct timeval time;
+    gettimeofday(&time, 0);
+    long seconds = time.tv_sec;
+    long microseconds = time.tv_usec;
+    double total_time = seconds + microseconds*1e-6;
+    return total_time;
+}

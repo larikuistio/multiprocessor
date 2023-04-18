@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <CL/cl.h>
+#include <sys/time.h>
 
 #include "lodepng.h"
 
@@ -19,5 +20,7 @@ bool resizeImage(unsigned char* image, unsigned char** newimage, unsigned* width
 bool addMatrix(unsigned int** in_a, unsigned int** in_b, unsigned int** out, unsigned row_size, unsigned col_size);
 
 int printDeviceInfo(cl_device_id *device, cl_platform_id *plat);
+
+double queryProfiler(void);
 
 #endif
