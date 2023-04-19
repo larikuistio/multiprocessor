@@ -334,10 +334,15 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 		printf("CL_DEVICE_LOCAL_MEM_TYPE: UNKNOWN\n");
 	}
 	printf("CL_DEVICE_LOCAL_MEM_SIZE: %lu bytes\n", local_mem_size);
-	printf("CL_DEVICE_MAX_CLOCK_FREQUENCY: %lu MHz\n", max_clock_frequency);
+	printf("CL_DEVICE_MAX_CLOCK_FREQUENCY: %u MHz\n", max_clock_frequency);
 	printf("CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE: %lu bytes\n", max_constant_buffer_size);
 	printf("CL_DEVICE_MAX_WORK_GROUP_SIZE: %lu\n", max_work_group_size);
-	printf("CL_DEVICE_MAX_WORK_ITEM_SIZES: %lu\n", max_work_item_sizes);
+	printf("CL_DEVICE_MAX_WORK_ITEM_SIZES:\n");
+	for(size_t i = 0; i < max_work_item_dim; i++)
+	{
+		printf("%lu\n", max_work_item_sizes[i]);
+	}
+	printf("\n");
 	
 	printf("");
 	printf("\n------------------------------------------\n");

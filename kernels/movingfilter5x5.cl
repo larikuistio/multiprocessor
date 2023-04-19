@@ -3,20 +3,20 @@ __kernel void movingfilter5x5(__global uchar* input,
                         __private uint width,
                         __private uint height) {
    
-   uchar filterMatrix[] = {
+   /*uchar filterMatrix[] = {
       0, 0, 0, 0, 0,
       0, 0, 0, 0, 0,
       0, 0, 1, 0, 0,
       0, 0, 0, 0, 0,
       0, 0, 0, 0, 0
-   };
-   /*uchar filterMatrix[] = {
+   };*/
+   uchar filterMatrix[] = {
       1, 1, 1, 1, 1,
       1, 1, 1, 1, 1,
       1, 1, 1, 1, 1,
       1, 1, 1, 1, 1,
       1, 1, 1, 1, 1
-   };*/
+   };
    ushort filterWidth = 5;
    ushort filterHeight = 5;
    uint imgWidth = width*4;
@@ -68,6 +68,6 @@ __kernel void movingfilter5x5(__global uchar* input,
       }
    }
 
-   output[x + y * imgWidth] = sum;
+   output[x + y * imgWidth] = sum/25;
 }
 

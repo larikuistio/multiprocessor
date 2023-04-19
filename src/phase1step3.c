@@ -1,6 +1,6 @@
 #define NUM_FILES 3
 #define PROGRAM_FILE_0 "kernels/movingfilter5x5.cl"
-#define PROGRAM_FILE_1 "kernels/grayscale.cl"
+#define PROGRAM_FILE_1 "kernels/grayscalergba.cl"
 #define PROGRAM_FILE_2 "kernels/resizeimage.cl"
 #define KERNEL_NAME_0 "grayscale"
 #define KERNEL_NAME_1 "movingfilter5x5"
@@ -15,8 +15,12 @@
 #include <time.h>
 #include <CL/cl.h>
 #include "helpers.h"
+#include <sys/time.h>
 
 int main(int argc, char **argv) {
+
+   clock_t startprogclk = clock();
+	double startprog = queryProfiler();
 
    if (argc < 2) {
       printf("provide input and output image files names as arguments\n");
@@ -31,14 +35,17 @@ int main(int argc, char **argv) {
    unsigned char* resized = 0;
    unsigned width, height, resizedWidth, resizedHeight;
 
-   clock_t start = clock();
+   clock_t startclk = clock();
+   double start = queryProfiler();
    decodeImage(inputimg, &image, &width, &height);
    resizedWidth = width / 4;
    resizedHeight = height / 4;
-   clock_t end = clock();
+   double end = queryProfiler();
+   clock_t endclk = clock();
 
-   double elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
-   printf("Time taken to load the image: %lf seconds", elapsed_time);
+   double elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
+   printf("\ncpu time taken to load the image: %lf seconds\n", elapsed_time);
+   printf("real time taken to load the image: %lf seconds\n", end-start);
 
    /* Host/device data structures */
    cl_platform_id platform;
@@ -46,152 +53,14 @@ int main(int argc, char **argv) {
    cl_int err;
    cl_context context;
 
-   /* Extension data */
-   char name_data[48], ext_data[4096], vendor_data[192], driver_version[512], highest_version[512], device_version[512];
-   cl_ulong global_mem_size;
-   cl_uint address_bits;
-   cl_bool device_available, compiler_available;
-   cl_uint char_width;
-   cl_uint max_compute_units, max_work_item_dim;
-   cl_bool img_support;
+   cl_ulong kernelstarttimes[5];
+	cl_ulong kernelendtimes[5];
+	cl_double exectimems[5];
 
-   /* Identify a platform */
-   err = clGetPlatformIDs(1, &platform, NULL);			
-   if(err < 0) {			
-      perror("Couldn't find any platforms");
-      return EXIT_FAILURE;
-   }
-
-   /* Access a device, preferably a GPU */
-   err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &dev, NULL);
-   if(err == CL_DEVICE_NOT_FOUND) {
-      err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &dev, NULL);
-   }
-   if(err < 0) {
-      perror("Couldn't access any devices");
-      return EXIT_FAILURE;   
-   }
-
-   /* Access device name */
-   err = clGetDeviceInfo(dev, CL_DEVICE_NAME, 		
-      48 * sizeof(char), name_data, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device name");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device vendor */
-   err = clGetDeviceInfo(dev, CL_DEVICE_VENDOR, 		
-      192 * sizeof(char), vendor_data, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device vendor");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device extensions */
-   err = clGetDeviceInfo(dev, CL_DEVICE_EXTENSIONS, 		
-      4096 * sizeof(char), ext_data, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device extensions");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device global memory size */
-   err = clGetDeviceInfo(dev, CL_DEVICE_GLOBAL_MEM_SIZE, 		
-      sizeof(cl_ulong), &global_mem_size, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device global memory size");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device address size */
-   err = clGetDeviceInfo(dev, CL_DEVICE_ADDRESS_BITS, 		
-      sizeof(cl_uint), &address_bits, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device address size");
-      return EXIT_FAILURE;
-   }
-
-   /* Check if device is available */
-   err = clGetDeviceInfo(dev, CL_DEVICE_AVAILABLE, 		
-      sizeof(cl_bool), &device_available, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check if device is available");
-      return EXIT_FAILURE;
-   }
-
-   /* Check if implementation provides a compiler for the device */
-   err = clGetDeviceInfo(dev, CL_DEVICE_COMPILER_AVAILABLE, 		
-      sizeof(cl_bool), &compiler_available, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check if implementation provides a compiler for the device");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device image support */
-   err = clGetDeviceInfo(dev, CL_DEVICE_IMAGE_SUPPORT, 		
-      sizeof(cl_bool), &img_support, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device opencl version");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device preferred vector width in chars */
-   err = clGetDeviceInfo(dev, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, 		
-      sizeof(char_width), &char_width, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device preferred vector width");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device max compute units */
-   err = clGetDeviceInfo(dev, CL_DEVICE_MAX_COMPUTE_UNITS, 		
-      sizeof(max_compute_units), &max_compute_units, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device max compute units");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device max work item dimensions */
-   err = clGetDeviceInfo(dev, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 		
-      sizeof(max_work_item_dim), &max_work_item_dim, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device max work item dimensions");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device driver version */
-   err = clGetDeviceInfo(dev, CL_DRIVER_VERSION, 		
-      512 * sizeof(char), driver_version, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device driver version");
-      return EXIT_FAILURE;
-   }
-
-   /* Check highest supported opencl version */
-   err = clGetDeviceInfo(dev, CL_DEVICE_OPENCL_C_VERSION, 		
-      512 * sizeof(char), highest_version, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check highest supported opencl version");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device opencl version */
-   err = clGetDeviceInfo(dev, CL_DEVICE_VERSION, 		
-      512 * sizeof(char), device_version, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device opencl version");
-      return EXIT_FAILURE;
-   }
-
-   printf("\n------------------------------------------\nDEVICE INFORMATION\n\n");
-   printf("NAME: %s\nVENDOR: %s\n\nEXTENSIONS: %s\n\n", name_data, vendor_data, ext_data);
-   printf("GLOBAL MEM SIZE: %lu bytes\nADDRESS BITS: %u\n", global_mem_size, address_bits);
-   printf("DEVICE AVAILABLE: %d\nCOMPILER AVAILABLE: %d\n", device_available, compiler_available);
-   printf("PREFERRED VECTOR WIDTH: %u chars\nMAX COMPUTE UNITS: %u\nMAX WORK ITEM DIMENSIONS: %u\n", char_width, max_compute_units, max_work_item_dim);
-   printf("HIGHEST SUPPORTED OPENCL VERSION: %s\nDEVICE OPENCL VERSION: %s\n", highest_version, device_version);
-   printf("CL_DEVICE_IMAGE_SUPPORT: %d\n", img_support);
-   printf("\n------------------------------------------\n");
+	if(printDeviceInfo(&dev, &platform) == EXIT_FAILURE)
+	{
+		return EXIT_FAILURE;
+	}
 
 
    /* Create a context */
@@ -256,12 +125,10 @@ int main(int argc, char **argv) {
    }
 
    // allocate memory
-   resized = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
-   grayscale = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
    output = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
 
    // Create command queue
-   cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
+   cl_command_queue command_queue = clCreateCommandQueue(context, dev, CL_QUEUE_PROFILING_ENABLE, &err);
    if(err < 0) {
       perror("Couldn't create command queue");
       return EXIT_FAILURE;   
@@ -275,22 +142,24 @@ int main(int argc, char **argv) {
    }
    cl_mem resized_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
-      perror("0 Couldn't create memory buffers on the device");
+      perror("1 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
    cl_mem grayscale_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
-      perror("1 Couldn't create memory buffers on the device");
+      perror("2 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
    cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
-      perror("2 Couldn't create memory buffers on the device");
+      perror("3 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
 
+   cl_event event_list[5];
+
    // Copy buffers to the device
-   err = clEnqueueWriteBuffer(command_queue, input_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, input_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image, 0, event_list, &event_list[0]);
    err = clEnqueueWriteBuffer(command_queue, resized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized, 0, NULL, NULL);
    err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
    err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
@@ -364,37 +233,68 @@ int main(int argc, char **argv) {
    size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
    size_t global_work_offset[2] = {0, 0};
    size_t global_size_resized = resizedWidth*resizedHeight*4;
-   cl_event event_list[2];
+   
 
    // Resize
-   err = clEnqueueNDRangeKernel(command_queue, kernel2, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
+   err = clEnqueueNDRangeKernel(command_queue, kernel2, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[1]);
    if(err < 0) {
       perror("0 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
 
    // Grayscale
-   err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size_resized, NULL, 1, event_list, &event_list[1]);
+   err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size_resized, NULL, 1, event_list, &event_list[2]);
    if(err < 0) {
       perror("1 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
 
    // Moving filter
-   err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size_resized, NULL, 2, event_list, NULL);
+   err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size_resized, NULL, 2, event_list, &event_list[3]);
    if(err < 0) {
       perror("2 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
    
    // Read results
-   err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*4*sizeof(unsigned char), output, 0, NULL, NULL);
+   err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*4*sizeof(unsigned char), output, 3, event_list, &event_list[4]);
    if(err < 0) {
       perror("Error in clEnqueueReadBuffer");
       return EXIT_FAILURE;
    }
 
+   // profile kernel execution times
+	clWaitForEvents(5, (const cl_event*)&event_list);
 
+   // write buffer
+	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[0], NULL);
+	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[0], NULL);
+	exectimems[0] = (cl_double)(kernelendtimes[0] - kernelstarttimes[0])*(cl_double)(1e-06);
+	printf("writing input buffer to device took: %lf ms\n", exectimems[0]);
+
+	// resize
+	clGetEventProfilingInfo(event_list[1], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[1], NULL);
+	clGetEventProfilingInfo(event_list[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[1], NULL);
+	exectimems[1] = (cl_double)(kernelendtimes[1] - kernelstarttimes[1])*(cl_double)(1e-06);
+	printf("resize kernel execution time: %lf ms\n", exectimems[1]);
+
+	// grayscale
+	clGetEventProfilingInfo(event_list[2], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[2], NULL);
+	clGetEventProfilingInfo(event_list[2], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[2], NULL);
+	exectimems[2] = (cl_double)(kernelendtimes[2] - kernelstarttimes[2])*(cl_double)(1e-06);
+	printf("grayscale kernel execution time: %lf ms\n", exectimems[2]);
+
+	// movingfilter
+	clGetEventProfilingInfo(event_list[3], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[3], NULL);
+	clGetEventProfilingInfo(event_list[3], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[3], NULL);
+	exectimems[3] = (cl_double)(kernelendtimes[3] - kernelstarttimes[3])*(cl_double)(1e-06);
+	printf("movingfilter kernel execution time: %lf ms\n", exectimems[3]);
+
+   // read buffer
+	clGetEventProfilingInfo(event_list[4], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[4], NULL);
+	clGetEventProfilingInfo(event_list[4], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[4], NULL);
+	exectimems[4] = (cl_double)(kernelendtimes[4] - kernelstarttimes[4])*(cl_double)(1e-06);
+	printf("reading output buffer from device took: %lf ms\n", exectimems[4]);
 
    // Clean up and wait for all the commands to complete
    err = clFlush(command_queue);
@@ -405,12 +305,15 @@ int main(int argc, char **argv) {
    }
    
    // output result
-   start = clock();
-   encodeImage(argv[2], output, &resizedWidth, &resizedHeight);
+   startclk = clock();
+   start = queryProfiler();
+   encodeImage(outputimg, output, &resizedWidth, &resizedHeight);
 
-   end = clock();
-   elapsed_time = (end-start)/(double)CLOCKS_PER_SEC;
-   printf("\nTime taken to encode image: %lf seconds", elapsed_time);
+   endclk = clock();
+   end = queryProfiler();
+   elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
+   printf("\ncpu time taken to encode image: %lf seconds\n", elapsed_time);
+   printf("real time taken to encode image: %lf seconds\n", end-start);
 
 
    /* Deallocate resources */
@@ -432,11 +335,17 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;   
    }
    free(image);
-   free(resized);
-   free(grayscale);
    free(output);
 
 
    printf("\n\nProgram finished\n");
+
+   clock_t endprogclk = clock();
+	double endprog = queryProfiler();
+
+	double elapsed_time_prog = (endprogclk-startprogclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken by program execution: %lf seconds\n", elapsed_time_prog);
+	printf("real time taken by program execution: %f  seconds\n", endprog-startprog);
+
    return EXIT_SUCCESS;
 }

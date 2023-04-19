@@ -32,33 +32,17 @@
 int MIN_DISPARITY = 0;
 int MAX_DISPARITY = 65;
 int MAX_DISPARITY_NEG = -65;
-int B = 10;
+int B = 8;
 // CROSSCHECK PARAMETERS
 int THRESHOLD = 2;
 // OCCLUSIONFILL PARAMETERS
 int NEIGHBORHOOD_SIZE = 256;
 
-void normalize(unsigned char* disparity_img, unsigned width, unsigned height) {
 
-	unsigned max = 0;
-	unsigned min = UCHAR_MAX;
-
-	for (unsigned i = 0; i < width*height; i++) {
-		if (disparity_img[i] > max) {
-			max = disparity_img[i];
-		}
-		if (disparity_img[i] < min) {
-			min = disparity_img[i];
-		}
-	}
-	for (unsigned i = 0; i < width*height; i++) {
-		disparity_img[i] = 255*(disparity_img[i]- min)/(max-min);
-	}
-}
 
 
 int main(int argc, char **argv)
-	{
+{
 
 	clock_t startprogclk = clock();
 	double startprog = queryProfiler();
@@ -96,7 +80,7 @@ int main(int argc, char **argv)
 	double end = queryProfiler();
 	double elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
 	printf("\ncpu time taken to load the image_l: %lf seconds\n", elapsed_time);
-	printf("real time used to load the image_l: %f\n", end-start);
+	printf("real time used to load the image_l: %f seconds\n", end-start);
 
 
 	startclk = clock();
@@ -106,7 +90,7 @@ int main(int argc, char **argv)
 	end = queryProfiler();
 	elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
 	printf("\ncpu time taken to load the image_r: %lf seconds\n", elapsed_time);
-	printf("real time used to load the image_r: %f\n", end-start);
+	printf("real time used to load the image_r: %f  seconds\n", end-start);
 
 
 	/* Host/device data structures */
@@ -118,6 +102,10 @@ int main(int argc, char **argv)
 	cl_ulong kernelstarttimes[10];
 	cl_ulong kernelendtimes[10];
 	cl_double exectimems[10];
+
+	cl_ulong bufferstarttimes[14];
+	cl_ulong bufferendtimes[14];
+	cl_double buffertimems[14];
 
 	if(printDeviceInfo(&dev, &platform) == EXIT_FAILURE)
 	{
@@ -187,14 +175,6 @@ int main(int argc, char **argv)
 	}
 
 	// Allocate memory
-	resized_l = 		(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
-	resized_r = 		(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
-	grayscale_l = 		(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
-	grayscale_r = 		(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
-	crosscheck = 		(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
-	occlusionfill = 	(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
-	zncc_output_lr = 	(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
-	zncc_output_rl = 	(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 	normalized =		(unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 
 
@@ -205,6 +185,8 @@ int main(int argc, char **argv)
 		perror("Couldn't create command queue");
 		return EXIT_FAILURE;   
 	}
+
+	cl_event buffer_event_list[14];
 
 	// Create memory buffers on the device
 	cl_mem input_clmem_l = clCreateBuffer(context, CL_MEM_READ_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
@@ -274,19 +256,19 @@ int main(int argc, char **argv)
 	}
 
 	// Copy buffers to the device
-	err = clEnqueueWriteBuffer(command_queue, input_clmem_l, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image_l, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, input_clmem_r, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image_r, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, resized_clmem_l, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized_l, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, resized_clmem_r, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized_r, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem_l, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale_l, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem_r, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale_r, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, zncc_output_clmem_lr, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), zncc_output_lr, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, zncc_output_clmem_rl, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), zncc_output_rl, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, crosscheck_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), crosscheck, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, occlusionfill_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), occlusionfill, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), normalized, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, min_clmem, CL_TRUE, 0, sizeof(int), &min, 0, NULL, NULL);
-	err = clEnqueueWriteBuffer(command_queue, max_clmem, CL_TRUE, 0, sizeof(int), &max, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(command_queue, input_clmem_l, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image_l, 0, NULL, &buffer_event_list[0]);
+	err = clEnqueueWriteBuffer(command_queue, input_clmem_r, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image_r, 0, NULL, &buffer_event_list[1]);
+	err = clEnqueueWriteBuffer(command_queue, resized_clmem_l, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized_l, 0, NULL, &buffer_event_list[2]);
+	err = clEnqueueWriteBuffer(command_queue, resized_clmem_r, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized_r, 0, NULL, &buffer_event_list[3]);
+	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem_l, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale_l, 0, NULL, &buffer_event_list[4]);
+	err = clEnqueueWriteBuffer(command_queue, grayscale_clmem_r, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale_r, 0, NULL, &buffer_event_list[5]);
+	err = clEnqueueWriteBuffer(command_queue, zncc_output_clmem_lr, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), zncc_output_lr, 0, NULL, &buffer_event_list[6]);
+	err = clEnqueueWriteBuffer(command_queue, zncc_output_clmem_rl, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), zncc_output_rl, 0, NULL, &buffer_event_list[7]);
+	err = clEnqueueWriteBuffer(command_queue, crosscheck_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), crosscheck, 0, NULL, &buffer_event_list[8]);
+	err = clEnqueueWriteBuffer(command_queue, occlusionfill_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), occlusionfill, 0, NULL, &buffer_event_list[9]);
+	err = clEnqueueWriteBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), normalized, 0, NULL, &buffer_event_list[10]);
+	err = clEnqueueWriteBuffer(command_queue, min_clmem, CL_TRUE, 0, sizeof(int), &min, 0, NULL, &buffer_event_list[11]);
+	err = clEnqueueWriteBuffer(command_queue, max_clmem, CL_TRUE, 0, sizeof(int), &max, 0, NULL, &buffer_event_list[12]);
 	
 	if(err < 0) {
 		perror("Couldn't copy memory buffers to the device");
@@ -570,7 +552,7 @@ int main(int argc, char **argv)
 	size_t global_work_offset[2] = {0, 0};
 	size_t global_size_resized[2] = {resizedWidth, resizedHeight};
    	size_t global_size_resized_asd = resizedWidth*resizedHeight*4;
-	cl_event event_list[21];
+	cl_event event_list[10];
 
 	// Resize
 	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_1, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
@@ -637,7 +619,7 @@ int main(int argc, char **argv)
 	}
 	
 	// Read results
-	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 10, event_list, NULL);
+	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 10, event_list, &buffer_event_list[13]);
 	if(err < 0) {
 		perror("Error in clEnqueueReadBuffer");
 		return EXIT_FAILURE;
@@ -706,6 +688,19 @@ int main(int argc, char **argv)
 	exectimems[9] = (cl_double)(kernelendtimes[9] - kernelstarttimes[9])*(cl_double)(1e-06);
 	printf("normalize kernel execution time for right image: %lf ms\n", exectimems[9]);
 
+
+	// buffer writes
+	clGetEventProfilingInfo(buffer_event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &bufferstarttimes[0], NULL);
+	clGetEventProfilingInfo(buffer_event_list[12], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &bufferendtimes[12], NULL);
+	buffertimems[0] = (cl_double)(bufferendtimes[12] - bufferstarttimes[0])*(cl_double)(1e-06);
+	printf("time taken for writing buffer to device: %lf ms\n", buffertimems[0]);
+
+	// buffer reads
+	clGetEventProfilingInfo(buffer_event_list[13], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &bufferstarttimes[13], NULL);
+	clGetEventProfilingInfo(buffer_event_list[13], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &bufferendtimes[13], NULL);
+	buffertimems[13] = (cl_double)(bufferendtimes[13] - bufferstarttimes[13])*(cl_double)(1e-06);
+	printf("time taken for reading buffers from device: %lf ms\n", buffertimems[13]);
+
 	// Clean up and wait for all the commands to complete
 	err = clFlush(command_queue);
 	err = clFinish(command_queue);
@@ -722,7 +717,7 @@ int main(int argc, char **argv)
 	end = queryProfiler();
 	elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
 	printf("\ncpu time taken to encode image: %lf seconds\n", elapsed_time);
-	printf("real time used to encode image: %f\n", end-start);
+	printf("real time used to encode image: %f  seconds\n", end-start);
 
 
 	/* Deallocate resources */
@@ -754,16 +749,7 @@ int main(int argc, char **argv)
 		perror("Error deallocating resources");
 		return EXIT_FAILURE;   
 	}
-	free(image_l);
-	free(image_r);
-	free(resized_l);
-	free(resized_r);
-	free(grayscale_l);
-	free(grayscale_r);
-	free(crosscheck);
-	free(occlusionfill);
-	free(zncc_output_lr);
-	free(zncc_output_rl);
+	
 	free(normalized);
 
 
@@ -774,9 +760,9 @@ int main(int argc, char **argv)
 
 	double elapsed_time_prog = (endprogclk-startprogclk)/(double)CLOCKS_PER_SEC;
 	printf("\ncpu time taken by program execution: %lf seconds\n", elapsed_time_prog);
-	printf("real time taken by program execution: %f\n", endprog-startprog);
+	printf("real time taken by program execution: %f  seconds\n", endprog-startprog);
 
 	return EXIT_SUCCESS;
-	}
+}
 
 
