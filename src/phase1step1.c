@@ -5,8 +5,13 @@
 #include <inttypes.h>
 #include <CL/cl.h>
 #include "helpers.h"
+#include <time.h>
+#include <sys/time.h>
 
 int main(void) {
+    clock_t startprogclk = clock();
+	double startprog = queryProfiler();
+
     const char* img0 = "images/im0.png";
     const char* img1 = "images/im1.png";
     unsigned char* image0 = 0;
@@ -48,5 +53,13 @@ int main(void) {
     free(gscalergb1);
 
     printf("Program finished\n");
+
+    clock_t endprogclk = clock();
+	double endprog = queryProfiler();
+
+	double elapsed_time_prog = (endprogclk-startprogclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken by program execution: %lf seconds\n", elapsed_time_prog);
+	printf("real time taken by program execution: %f  seconds\n", endprog-startprog);
+
     return EXIT_SUCCESS;
 }

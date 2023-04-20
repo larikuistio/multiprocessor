@@ -5,69 +5,61 @@
 #include <inttypes.h>
 #include <CL/cl.h>
 #include "helpers.h"
-
-int add_matrices(void) {
-
-    unsigned array_row_size = 100;
-    unsigned array_col_size = 100;
-
-    unsigned* arr1 = calloc(array_row_size * array_col_size, sizeof(unsigned));
-    unsigned* arr2 = calloc(array_row_size * array_col_size, sizeof(unsigned));
-    unsigned* added_arr = calloc(array_row_size * array_col_size, sizeof(unsigned));
-
-
-    unsigned q;
-    for(unsigned i = 0, q = 0 ; i < array_row_size * array_col_size; i++ ) {
-        arr1[i] = ++q;
-        arr2[i] = ++q;
-    }
-
-    addMatrix(arr1, arr2, added_arr, array_row_size, array_col_size);
-
-
-    for( i = 0; i < array_row_size; i++ ) {
-        free(arr1[i]);
-        free(arr2[i]);
-        free(added_arr[i]);
-    }
-
-    free(arr1);
-    free(arr2);
-    free(added_arr);
-    
-    return EXIT_SUCCESS;
-}
+#include <time.h>
+#include <sys/time.h>
 
 int main(void) {
-    // const char* filename = "images/im1.png";
-    // unsigned char* image = 0;
-    // unsigned width, height;
-    // decodeImage(filename, &image, &width, &height);
+    clock_t startprogclk = clock();
+	double startprog = queryProfiler();
 
-    // const char* filename1 = "images/test.png";
-    // const char* filename2 = "images/test1.png";
-    // const char* filename3 = "images/resized.png";
-    // unsigned char* image3 = 0;
-    // unsigned char* image4 = 0;
-    // unsigned char* image5 = 0;
-    // unsigned newwidth, newheight;
-    // resizeImage(image, &image3, &width, &height, &newwidth, &newheight);
-    // convertToGrayscale(image3, &image4, &newwidth, &newheight);
-    // convertToRGB(image4, &image5, &newwidth, &newheight);
-    // encodeImage(filename1, image, &width, &height);
-    // encodeImage(filename2, image2, &width, &height);
-    // encodeImage(filename3, image5, &newwidth, &newheight);
-    // free(image);
-    // free(image2);
-    // free(image3);
-    // free(image4);
-    // free(image5);
+    const char* img0 = "images/im0.png";
+    const char* img1 = "images/im1.png";
+    unsigned char* image0 = 0;
+    unsigned char* image1 = 0;
+    unsigned width0, height0;
+    unsigned width1, height1;
+    decodeImage(img0, &image0, &width0, &height0);
+    decodeImage(img1, &image1, &width1, &height1);
 
-    if(add_matrices()) {
-        printf("Add matrices failed\n");
-        return EXIT_FAILURE;
-    
-    }
+    const char* resized0 = "images/resized0.png";
+    const char* resized1 = "images/resized1.png";
+    const char* grayscale0 = "images/grayscale0.png";
+    const char* grayscale1 = "images/grayscale1.png";
+    unsigned char* rsized0 = 0;
+    unsigned char* rsized1 = 0;
+    unsigned char* gscale0 = 0;
+    unsigned char* gscale1 = 0;
+    unsigned char* gscalergb0 = 0;
+    unsigned char* gscalergb1 = 0;
+    unsigned newwidth0, newheight0;
+    unsigned newwidth1, newheight1;
+    resizeImage(image0, &rsized0, &width0, &height0, &newwidth0, &newheight0);
+    resizeImage(image1, &rsized1, &width1, &height1, &newwidth1, &newheight1);
+    convertToGrayscale(rsized0, &gscale0, &newwidth0, &newheight0);
+    convertToGrayscale(rsized1, &gscale1, &newwidth1, &newheight1);
+    convertToRGB(gscale0, &gscalergb0, &newwidth0, &newheight0);
+    convertToRGB(gscale1, &gscalergb1, &newwidth1, &newheight1);
+    encodeImage(resized0, rsized0, &newwidth0, &newheight0);
+    encodeImage(resized1, rsized1, &newwidth1, &newheight1);
+    encodeImage(grayscale0, gscalergb0, &newwidth0, &newheight0);
+    encodeImage(grayscale1, gscalergb1, &newwidth1, &newheight1);
+    free(image0);
+    free(image1);
+    free(rsized0);
+    free(rsized1);
+    free(gscale0);
+    free(gscale1);
+    free(gscalergb0);
+    free(gscalergb1);
+
     printf("Program finished\n");
+
+    clock_t endprogclk = clock();
+	double endprog = queryProfiler();
+
+	double elapsed_time_prog = (endprogclk-startprogclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken by program execution: %lf seconds\n", elapsed_time_prog);
+	printf("real time taken by program execution: %f  seconds\n", endprog-startprog);
+
     return EXIT_SUCCESS;
 }

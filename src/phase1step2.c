@@ -11,6 +11,8 @@
 #include <string.h>
 #include <CL/cl.h>
 #include "helpers.h"
+#include <time.h>
+#include <sys/time.h>
 
 int add_matrices(void) {
 
@@ -51,11 +53,21 @@ int add_matrices(void) {
 
 int main(int argc, char **argv) {
 
-    if(add_matrices()) {
-        printf("Add matrices failed\n");
-        return EXIT_FAILURE;
-    
-    }
+   clock_t startprogclk = clock();
+	double startprog = queryProfiler();
+
+   clock_t startclk = clock();
+   double start = queryProfiler();
+   if(add_matrices()) {
+      printf("Add matrices failed\n");
+      return EXIT_FAILURE;
+   
+   }
+   double end = queryProfiler();
+   clock_t endclk = clock();
+   double elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
+   printf("\ncpu time taken to add matrices: %lf seconds\n", elapsed_time);
+   printf("real time taken to add matrices: %lf seconds\n", end-start);
 
    /* Host/device data structures */
    cl_platform_id platform;
@@ -63,142 +75,15 @@ int main(int argc, char **argv) {
    cl_int err;
    cl_context context;
 
-   /* Extension data */
-   char name_data[48], ext_data[4096], vendor_data[192], driver_version[512], highest_version[512], device_version[512];
-   cl_ulong global_mem_size;
-   cl_uint address_bits;
-   cl_bool device_available, compiler_available;
-   cl_uint char_width;
-   cl_uint max_compute_units, max_work_item_dim;
+   cl_ulong kernelstarttimes[3];
+	cl_ulong kernelendtimes[3];
+	cl_double exectimems[3];
 
-   /* Identify a platform */
-   err = clGetPlatformIDs(1, &platform, NULL);			
-   if(err < 0) {			
-      perror("Couldn't find any platforms");
-      return EXIT_FAILURE;
-   }
+   if(printDeviceInfo(&dev, &platform) == EXIT_FAILURE)
+	{
+		return EXIT_FAILURE;
+	}
 
-   /* Access a device, preferably a GPU */
-   err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &dev, NULL);
-   if(err == CL_DEVICE_NOT_FOUND) {
-      err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &dev, NULL);
-   }
-   if(err < 0) {
-      perror("Couldn't access any devices");
-      return EXIT_FAILURE;   
-   }
-
-   /* Access device name */
-   err = clGetDeviceInfo(dev, CL_DEVICE_NAME, 		
-      48 * sizeof(char), name_data, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device name");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device vendor */
-   err = clGetDeviceInfo(dev, CL_DEVICE_VENDOR, 		
-      192 * sizeof(char), vendor_data, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device vendor");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device extensions */
-   err = clGetDeviceInfo(dev, CL_DEVICE_EXTENSIONS, 		
-      4096 * sizeof(char), ext_data, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device extensions");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device global memory size */
-   err = clGetDeviceInfo(dev, CL_DEVICE_GLOBAL_MEM_SIZE, 		
-      sizeof(cl_ulong), &global_mem_size, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device global memory size");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device address size */
-   err = clGetDeviceInfo(dev, CL_DEVICE_ADDRESS_BITS, 		
-      sizeof(cl_uint), &address_bits, NULL);			
-   if(err < 0) {		
-      perror("Couldn't read device address size");
-      return EXIT_FAILURE;
-   }
-
-   /* Check if device is available */
-   err = clGetDeviceInfo(dev, CL_DEVICE_AVAILABLE, 		
-      sizeof(cl_bool), &device_available, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check if device is available");
-      return EXIT_FAILURE;
-   }
-
-   /* Check if implementation provides a compiler for the device */
-   err = clGetDeviceInfo(dev, CL_DEVICE_COMPILER_AVAILABLE, 		
-      sizeof(cl_bool), &compiler_available, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check if implementation provides a compiler for the device");
-      return EXIT_FAILURE;
-   }
-
-   /* Access device preferred vector width in chars */
-   err = clGetDeviceInfo(dev, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, 		
-      sizeof(char_width), &char_width, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device preferred vector width");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device max compute units */
-   err = clGetDeviceInfo(dev, CL_DEVICE_MAX_COMPUTE_UNITS, 		
-      sizeof(max_compute_units), &max_compute_units, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device max compute units");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device max work item dimensions */
-   err = clGetDeviceInfo(dev, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 		
-      sizeof(max_work_item_dim), &max_work_item_dim, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device max work item dimensions");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device driver version */
-   err = clGetDeviceInfo(dev, CL_DRIVER_VERSION, 		
-      512 * sizeof(char), driver_version, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device driver version");
-      return EXIT_FAILURE;
-   }
-
-   /* Check highest supported opencl version */
-   err = clGetDeviceInfo(dev, CL_DEVICE_OPENCL_C_VERSION, 		
-      512 * sizeof(char), highest_version, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check highest supported opencl version");
-      return EXIT_FAILURE;
-   }
-
-   /* Check device opencl version */
-   err = clGetDeviceInfo(dev, CL_DEVICE_VERSION, 		
-      512 * sizeof(char), device_version, NULL);			
-   if(err < 0) {		
-      perror("Couldn't check device opencl version");
-      return EXIT_FAILURE;
-   }
-
-   printf("\n------------------------------------------\nDEVICE INFORMATION\n\n");
-   printf("NAME: %s\nVENDOR: %s\n\nEXTENSIONS: %s\n\n", name_data, vendor_data, ext_data);
-   printf("GLOBAL MEM SIZE: %lu bytes\nADDRESS BITS: %u\n", global_mem_size, address_bits);
-   printf("DEVICE AVAILABLE: %d\nCOMPILER AVAILABLE: %d\n", device_available, compiler_available);
-   printf("PREFERRED VECTOR WIDTH: %u chars\nMAX COMPUTE UNITS: %u\nMAX WORK ITEM DIMENSIONS: %u\n", char_width, max_compute_units, max_work_item_dim);
-   printf("HIGHEST SUPPORTED OPENCL VERSION: %s\nDEVICE OPENCL VERSION: %s\n", highest_version, device_version);
-   printf("\n------------------------------------------\n");
 
    /* Create a context */
    context = clCreateContext(NULL, 1, &dev, NULL, NULL, &err);
@@ -276,7 +161,7 @@ int main(int argc, char **argv) {
    
 
    // Create command queue
-   cl_command_queue command_queue = clCreateCommandQueue(context, dev, 0, &err);
+   cl_command_queue command_queue = clCreateCommandQueue(context, dev, CL_QUEUE_PROFILING_ENABLE, &err);
    if(err < 0) {
       perror("Couldn't create command queue");
       return EXIT_FAILURE;   
@@ -291,9 +176,11 @@ int main(int argc, char **argv) {
       return EXIT_FAILURE;   
    }
 
+   cl_event event_list[4];
+
    // Copy buffers to the device
-   err = clEnqueueWriteBuffer(command_queue, A_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), A, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, B_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), B, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, A_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), A, 0, NULL, &event_list[0]);
+   err = clEnqueueWriteBuffer(command_queue, B_clmem, CL_TRUE, 0, MATRIX_SIZE * sizeof(int), B, 0, NULL, &event_list[1]);
    if(err < 0) {
       perror("Couldn't copy memory buffers to the device");
       return EXIT_FAILURE;   
@@ -314,22 +201,45 @@ int main(int argc, char **argv) {
       perror("Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
-
+   
    // Execute kernel on the device
    size_t global_size = MATRIX_SIZE;
    size_t local_size = 10;
-   err = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+   err = clEnqueueNDRangeKernel(command_queue, kernel, 1, NULL, &global_size, &local_size, 2, event_list, &event_list[2]);
    if(err < 0) {
       perror("Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
    
    // Read results
-   err = clEnqueueReadBuffer(command_queue, results_clmem, CL_TRUE, 0, MATRIX_SIZE*sizeof(int), results, 0, NULL, NULL);
+   err = clEnqueueReadBuffer(command_queue, results_clmem, CL_TRUE, 0, MATRIX_SIZE*sizeof(int), results, 3, event_list, &event_list[3]);
    if(err < 0) {
       perror("Error in clEnqueueReadBuffer");
       return EXIT_FAILURE;   
    }
+
+
+   // profile kernel execution times
+	clWaitForEvents(4, (const cl_event*)&event_list);
+
+   // write buffer
+	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[0], NULL);
+	clGetEventProfilingInfo(event_list[1], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[0], NULL);
+	exectimems[0] = (cl_double)(kernelendtimes[0] - kernelstarttimes[0])*(cl_double)(1e-06);
+	printf("writing input buffers to device took: %lf ms\n", exectimems[0]);
+
+	// matrix addition
+	clGetEventProfilingInfo(event_list[2], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[1], NULL);
+	clGetEventProfilingInfo(event_list[2], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[1], NULL);
+	exectimems[1] = (cl_double)(kernelendtimes[1] - kernelstarttimes[1])*(cl_double)(1e-06);
+	printf("matrix addition kernel execution time: %lf ms\n", exectimems[1]);
+
+   // read buffer
+	clGetEventProfilingInfo(event_list[3], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[2], NULL);
+	clGetEventProfilingInfo(event_list[3], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[2], NULL);
+	exectimems[2] = (cl_double)(kernelendtimes[2] - kernelstarttimes[2])*(cl_double)(1e-06);
+	printf("reading output buffer from device took: %lf ms\n", exectimems[2]);
+
 
    // Clean up and wait for all the commands to complete
    err = clFlush(command_queue);
@@ -369,5 +279,13 @@ int main(int argc, char **argv) {
 
 
    printf("\n\nProgram finished\n");
+
+   clock_t endprogclk = clock();
+	double endprog = queryProfiler();
+
+	double elapsed_time_prog = (endprogclk-startprogclk)/(double)CLOCKS_PER_SEC;
+	printf("\ncpu time taken by program execution: %lf seconds\n", elapsed_time_prog);
+	printf("real time taken by program execution: %f  seconds\n", endprog-startprog);
+
    return EXIT_SUCCESS;
 }

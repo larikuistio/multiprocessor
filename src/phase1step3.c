@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
    }
 
    // allocate memory
-   output = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight*4);
+   output = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 
    // Create command queue
    cl_command_queue command_queue = clCreateCommandQueue(context, dev, CL_QUEUE_PROFILING_ENABLE, &err);
@@ -145,12 +145,12 @@ int main(int argc, char **argv) {
       perror("1 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
-   cl_mem grayscale_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
+   cl_mem grayscale_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
       perror("2 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
-   cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
+   cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
       perror("3 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
@@ -161,8 +161,8 @@ int main(int argc, char **argv) {
    // Copy buffers to the device
    err = clEnqueueWriteBuffer(command_queue, input_clmem, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image, 0, event_list, &event_list[0]);
    err = clEnqueueWriteBuffer(command_queue, resized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), resized, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), grayscale, 0, NULL, NULL);
-   err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), output, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, grayscale_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), grayscale, 0, NULL, NULL);
+   err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), output, 0, NULL, NULL);
    
    if(err < 0) {
       perror("Couldn't copy memory buffers to the device");
@@ -257,7 +257,7 @@ int main(int argc, char **argv) {
    }
    
    // Read results
-   err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*4*sizeof(unsigned char), output, 3, event_list, &event_list[4]);
+   err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), output, 3, event_list, &event_list[4]);
    if(err < 0) {
       perror("Error in clEnqueueReadBuffer");
       return EXIT_FAILURE;
@@ -307,8 +307,7 @@ int main(int argc, char **argv) {
    // output result
    startclk = clock();
    start = queryProfiler();
-   encodeImage(outputimg, output, &resizedWidth, &resizedHeight);
-
+   lodepng_encode_file(outputimg, output, resizedWidth, resizedHeight, LCT_GREY, 8);
    endclk = clock();
    end = queryProfiler();
    elapsed_time = (endclk-startclk)/(double)CLOCKS_PER_SEC;
