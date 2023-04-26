@@ -4,6 +4,7 @@ __kernel void resizeimage(__global uchar* input,
     uint i = get_global_id(0);
     uint j = get_global_id(1);
 
+
     // Every 4th row
     if (j % 4 == 0) {
         // Every 4th column
@@ -15,5 +16,6 @@ __kernel void resizeimage(__global uchar* input,
             output[(j*2940)/4 + i/4 + 3] = input[j*2940*4 + i+3];
         }
     }
+
 }
 

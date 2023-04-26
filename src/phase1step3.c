@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
    /* Create a context */
    context = clCreateContext(NULL, 1, &dev, NULL, NULL, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("Couldn't create a context");
       exit(1);   
    }
@@ -86,6 +87,7 @@ int main(int argc, char **argv) {
 
       program_handle = fopen(file_name[i], "r");
       if(program_handle == NULL) {
+         printOpenCLErrorCode(err);
          perror("Couldn't find the program file");
          return EXIT_FAILURE; 
       }
@@ -104,6 +106,7 @@ int main(int argc, char **argv) {
          (const char**)program_buffer, program_size, &err);
          
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("Couldn't create the program");
       return EXIT_FAILURE;   
    }
@@ -111,7 +114,7 @@ int main(int argc, char **argv) {
    /* Build program */
    err = clBuildProgram(program, 1, &dev, options, NULL, NULL);		
    if(err < 0) {
-
+      printOpenCLErrorCode(err);
       /* Find size of log and print to std output */
       clGetProgramBuildInfo(program, dev, CL_PROGRAM_BUILD_LOG, 
             0, NULL, &log_size);
@@ -130,6 +133,7 @@ int main(int argc, char **argv) {
    // Create command queue
    cl_command_queue command_queue = clCreateCommandQueue(context, dev, CL_QUEUE_PROFILING_ENABLE, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("Couldn't create command queue");
       return EXIT_FAILURE;   
    }
@@ -137,21 +141,25 @@ int main(int argc, char **argv) {
    // Create memory buffers on the device
    cl_mem input_clmem = clCreateBuffer(context, CL_MEM_READ_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("0 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
    cl_mem resized_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * 4 * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("1 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
    cl_mem grayscale_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("2 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
    cl_mem output_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("3 Couldn't create memory buffers on the device");
       return EXIT_FAILURE;   
    }
@@ -165,6 +173,7 @@ int main(int argc, char **argv) {
    err = clEnqueueWriteBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), output, 0, NULL, NULL);
    
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("Couldn't copy memory buffers to the device");
       return EXIT_FAILURE;   
    }
@@ -172,16 +181,19 @@ int main(int argc, char **argv) {
    // Create kernel
    cl_kernel kernel0 = clCreateKernel(program, KERNEL_NAME_0, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("0 Couldn't create kernel");
       return EXIT_FAILURE;   
    }
    cl_kernel kernel1 = clCreateKernel(program, KERNEL_NAME_1, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("1 Couldn't create kernel");
       return EXIT_FAILURE;   
    }
    cl_kernel kernel2 = clCreateKernel(program, KERNEL_NAME_2, &err);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("2 Couldn't create kernel");
       return EXIT_FAILURE;   
    }
@@ -189,41 +201,49 @@ int main(int argc, char **argv) {
    // Set kernel arguments
    err = clSetKernelArg(kernel2, 0, sizeof(cl_mem), (void*)&input_clmem);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("0 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
    err = clSetKernelArg(kernel2, 1, sizeof(cl_mem), (void*)&resized_clmem);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("1 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
    err = clSetKernelArg(kernel0, 0, sizeof(cl_mem), (void*)&resized_clmem);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("2 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
    err = clSetKernelArg(kernel0, 1, sizeof(cl_mem), (void*)&grayscale_clmem);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("3 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
    err = clSetKernelArg(kernel1, 0, sizeof(cl_mem), (void*)&grayscale_clmem);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("4 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
    err = clSetKernelArg(kernel1, 1, sizeof(cl_mem), (void*)&output_clmem);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("5 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
    err = clSetKernelArg(kernel1, 2, sizeof(unsigned int), &resizedWidth);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("6 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
    err = clSetKernelArg(kernel1, 3, sizeof(unsigned int), &resizedHeight);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("7 Couldn't set kernel arguments");
       return EXIT_FAILURE;   
    }
@@ -238,6 +258,7 @@ int main(int argc, char **argv) {
    // Resize
    err = clEnqueueNDRangeKernel(command_queue, kernel2, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[1]);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("0 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
@@ -245,6 +266,7 @@ int main(int argc, char **argv) {
    // Grayscale
    err = clEnqueueNDRangeKernel(command_queue, kernel0, 1, NULL, &global_size_resized, NULL, 1, event_list, &event_list[2]);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("1 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
@@ -252,6 +274,7 @@ int main(int argc, char **argv) {
    // Moving filter
    err = clEnqueueNDRangeKernel(command_queue, kernel1, 1, NULL, &global_size_resized, NULL, 2, event_list, &event_list[3]);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("2 Error in clEnqueueNDRangeKernel");
       return EXIT_FAILURE;   
    }
@@ -259,6 +282,7 @@ int main(int argc, char **argv) {
    // Read results
    err = clEnqueueReadBuffer(command_queue, output_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), output, 3, event_list, &event_list[4]);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("Error in clEnqueueReadBuffer");
       return EXIT_FAILURE;
    }
@@ -300,6 +324,7 @@ int main(int argc, char **argv) {
    err = clFlush(command_queue);
    err = clFinish(command_queue);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("Error executing command queue");
       return EXIT_FAILURE;   
    }
@@ -330,6 +355,7 @@ int main(int argc, char **argv) {
    err = clReleaseCommandQueue(command_queue);
    err = clReleaseContext(context);
    if(err < 0) {
+      printOpenCLErrorCode(err);
       perror("Error deallocating resources");
       return EXIT_FAILURE;   
    }

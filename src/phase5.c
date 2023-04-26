@@ -1,6 +1,6 @@
 
 #define NUM_FILES 7
-#define PROGRAM_FILE_0 "kernels/zncc.cl"
+#define PROGRAM_FILE_0 "kernels/zncc_new.cl"
 #define PROGRAM_FILE_1 "kernels/grayscale.cl"
 #define PROGRAM_FILE_2 "kernels/resizeimage.cl"
 #define PROGRAM_FILE_3 "kernels/crosscheck.cl"
@@ -27,6 +27,7 @@
 #include "helpers.h"
 #include <limits.h>
 #include <sys/time.h>
+#include <stdatomic.h>
 
 // ZNCC PARAMETERS
 int MIN_DISPARITY = 0;
@@ -36,7 +37,7 @@ int B = 8;
 // CROSSCHECK PARAMETERS
 int THRESHOLD = 2;
 // OCCLUSIONFILL PARAMETERS
-int NEIGHBORHOOD_SIZE = 256;
+int NEIGHBORHOOD_SIZE = 8;
 
 
 
@@ -69,6 +70,10 @@ int main(int argc, char **argv)
 	unsigned width, height, resizedWidth, resizedHeight;
 	int min = UCHAR_MAX;
 	int max = 0;
+	int* disparities_lr = 0;
+	int* disparities_rl = 0;
+	double* zncc_scores_lr = 0;
+	double* zncc_scores_rl = 0;
 
 
 	clock_t startclk = clock();
@@ -103,9 +108,9 @@ int main(int argc, char **argv)
 	cl_ulong kernelendtimes[10];
 	cl_double exectimems[10];
 
-	cl_ulong bufferstarttimes[14];
-	cl_ulong bufferendtimes[14];
-	cl_double buffertimems[14];
+	cl_ulong bufferstarttimes[18];
+	cl_ulong bufferendtimes[18];
+	cl_double buffertimems[18];
 
 	if(printDeviceInfo(&dev, &platform) == EXIT_FAILURE)
 	{
@@ -128,7 +133,7 @@ int main(int argc, char **argv)
 	char *program_buffer[NUM_FILES];
 	char *program_log;
 	const char *file_name[] = {PROGRAM_FILE_0, PROGRAM_FILE_1, PROGRAM_FILE_2, PROGRAM_FILE_3, PROGRAM_FILE_4, PROGRAM_FILE_5, PROGRAM_FILE_6};
-	const char options[] = "-cl-finite-math-only -cl-no-signed-zeros -cl-std=CL2.0";  
+	const char options[] = "-cl-finite-math-only -cl-no-signed-zeros -cl-std=CL2.0 -g -Werror -cl-opt-disable";  
 	size_t program_size[NUM_FILES];
 	size_t log_size;
 
@@ -189,6 +194,10 @@ int main(int argc, char **argv)
 	occlusionfill = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 	zncc_output_lr = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
 	zncc_output_rl = (unsigned char*)malloc(sizeof(unsigned char)*resizedWidth*resizedHeight);
+	disparities_lr = (int*)malloc(sizeof(int)*resizedWidth*resizedHeight);
+	disparities_rl = (int*)malloc(sizeof(int)*resizedWidth*resizedHeight);
+	zncc_scores_lr = (double*)malloc(sizeof(double)*resizedWidth*resizedHeight);
+	zncc_scores_rl = (double*)malloc(sizeof(double)*resizedWidth*resizedHeight);
 
 
 	// Create command queue
@@ -199,7 +208,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;   
 	}
 
-	cl_event buffer_event_list[14];
+	cl_event buffer_event_list[18];
 
 	// Create memory buffers on the device
 	cl_mem input_clmem_l = clCreateBuffer(context, CL_MEM_READ_ONLY, width * height * 4 * sizeof(unsigned char), NULL, &err);
@@ -280,6 +289,30 @@ int main(int argc, char **argv)
 		perror("12 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
+	cl_mem disparities_clmem_lr = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(int), NULL, &err);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("13 Couldn't create memory buffers on the device");
+		return EXIT_FAILURE;   
+	}
+	cl_mem zncc_scores_clmem_lr = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(double), NULL, &err);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("14 Couldn't create memory buffers on the device");
+		return EXIT_FAILURE;   
+	}
+	cl_mem disparities_clmem_rl = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(int), NULL, &err);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("15 Couldn't create memory buffers on the device");
+		return EXIT_FAILURE;   
+	}
+	cl_mem zncc_scores_clmem_rl = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(double), NULL, &err);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("16 Couldn't create memory buffers on the device");
+		return EXIT_FAILURE;   
+	}
 
 	// Copy buffers to the device
 	err = clEnqueueWriteBuffer(command_queue, input_clmem_l, CL_TRUE, 0, width * height * 4 * sizeof(unsigned char), image_l, 0, NULL, &buffer_event_list[0]);
@@ -295,6 +328,10 @@ int main(int argc, char **argv)
 	err = clEnqueueWriteBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(unsigned char), normalized, 0, NULL, &buffer_event_list[10]);
 	err = clEnqueueWriteBuffer(command_queue, min_clmem, CL_TRUE, 0, sizeof(int), &min, 0, NULL, &buffer_event_list[11]);
 	err = clEnqueueWriteBuffer(command_queue, max_clmem, CL_TRUE, 0, sizeof(int), &max, 0, NULL, &buffer_event_list[12]);
+	err = clEnqueueWriteBuffer(command_queue, disparities_clmem_lr, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(int), disparities_lr, 0, NULL, &buffer_event_list[13]);
+	err = clEnqueueWriteBuffer(command_queue, zncc_scores_clmem_lr, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(double), zncc_scores_lr, 0, NULL, &buffer_event_list[14]);
+	err = clEnqueueWriteBuffer(command_queue, disparities_clmem_rl, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(int), disparities_rl, 0, NULL, &buffer_event_list[15]);
+	err = clEnqueueWriteBuffer(command_queue, zncc_scores_clmem_rl, CL_TRUE, 0, resizedWidth * resizedHeight * sizeof(double), zncc_scores_rl, 0, NULL, &buffer_event_list[16]);
 	
 	if(err < 0) {
 		printOpenCLErrorCode(err);
@@ -466,6 +503,48 @@ int main(int argc, char **argv)
 		perror("15 Couldn't set zncc_krnl_1 arguments");
 		return EXIT_FAILURE;   
 	}
+	err = clSetKernelArg(zncc_krnl_1, 8, sizeof(cl_mem), (void*)&disparities_clmem_lr);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("110 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_1, 9, sizeof(cl_mem), (void*)&zncc_scores_clmem_lr);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("111 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_1, 10, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("112 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_1, 11, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("113 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_1, 12, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("114 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_1, 13, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("115 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_1, 14, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("116 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
 	err = clSetKernelArg(zncc_krnl_2, 0, sizeof(cl_mem), (void*)&grayscale_clmem_r);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
@@ -514,7 +593,49 @@ int main(int argc, char **argv)
 		perror("23 Couldn't set zncc_krnl_2 arguments");
 		return EXIT_FAILURE;   
 	}
-
+	err = clSetKernelArg(zncc_krnl_2, 8, sizeof(cl_mem), (void*)&disparities_clmem_rl);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("120 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_2, 9, sizeof(cl_mem), (void*)&zncc_scores_clmem_rl);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("121 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_2, 10, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("122 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_2, 11, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("123 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_2, 12, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("124 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_2, 13, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("125 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	err = clSetKernelArg(zncc_krnl_2, 14, sizeof(double), NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("126 Couldn't set zncc_krnl_1 arguments");
+		return EXIT_FAILURE;   
+	}
+	
 	// Crosscheck kernels
 	err = clSetKernelArg(crosscheck_krnl, 0, sizeof(cl_mem), (void*)&zncc_output_clmem_lr);
 	if(err < 0) {
@@ -626,22 +747,57 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;   
 	}
 	
+	size_t kernel_work_group_size;
+	err = clGetKernelWorkGroupInfo(zncc_krnl_1, dev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &kernel_work_group_size, NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("0 Error checking kernel work group size");
+		return EXIT_FAILURE;   
+	}
+	printf("zncc_krnl_1 work group size: %ld\n", kernel_work_group_size);
+	err = clGetKernelWorkGroupInfo(zncc_krnl_2, dev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &kernel_work_group_size, NULL);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("1 Error checking kernel work group size");
+		return EXIT_FAILURE;   
+	}
+	printf("zncc_krnl_2 work group size: %ld\n", kernel_work_group_size);
 
 	// Execute kernel on the device
-	size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
-	size_t global_work_offset[2] = {0, 0};
-	size_t global_size_resized[2] = {resizedWidth, resizedHeight};
-   	size_t global_size_resized_asd = resizedWidth*resizedHeight*4;
+	const size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
+	const size_t global_work_offset[2] = {0, 0};
+	const size_t global_size_resized[2] = {(size_t)resizedWidth, (size_t)resizedHeight};
+	const size_t global_size_zncc_lr[3] = {(size_t)resizedWidth/7, (size_t)resizedHeight/7, (size_t)MAX_DISPARITY};
+	const size_t global_size_zncc_rl[3] = {(size_t)resizedWidth/7, (size_t)resizedHeight/7, (size_t)MAX_DISPARITY};
+	size_t global_work_offset_zncc[7][7][3];
+	for(size_t i = 0; i < 7; i++)
+	{
+		for(size_t j = 0; j < 7; j++)
+		{
+			global_work_offset_zncc[i][j][0] = i * (resizedWidth/7);
+			global_work_offset_zncc[i][j][1] = j * (resizedHeight/7);
+			global_work_offset_zncc[i][j][2] = 0;
+		}
+	}
+	/*const size_t global_work_offset_0[3] = {0, 0, 0};
+	const size_t global_work_offset_1[3] = {1 * (resizedWidth/7), 1 * (resizedHeight/7), 0};
+	const size_t global_work_offset_2[3] = {2 * (resizedWidth/7), 2 * (resizedHeight/7), 0};
+	const size_t global_work_offset_3[3] = {3 * (resizedWidth/7), 3 * (resizedHeight/7), 0};
+	const size_t global_work_offset_4[3] = {4 * (resizedWidth/7), 4 * (resizedHeight/7), 0};
+	const size_t global_work_offset_5[3] = {5 * (resizedWidth/7), 5 * (resizedHeight/7), 0};
+	const size_t global_work_offset_6[3] = {6 * (resizedWidth/7), 6 * (resizedHeight/7), 0};*/
+	const size_t local_size[3] = {(size_t)B, (size_t)B, (size_t)1};
+   	const size_t global_size_resized_asd = (size_t)resizedWidth*resizedHeight*4;
 	cl_event event_list[10];
 
 	// Resize
-	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_1, 2, global_work_offset, global_size, NULL, 0, NULL, &event_list[0]);
+	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_1, 2, NULL, global_size, NULL, 0, NULL, &event_list[0]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("0 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
-	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_2, 2, global_work_offset, global_size, NULL, 1, event_list, &event_list[1]);
+	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_2, 2, NULL, global_size, NULL, 1, event_list, &event_list[1]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("1 Error in clEnqueueNDRangeKernel");
@@ -663,18 +819,109 @@ int main(int argc, char **argv)
 	}
 
 	// ZNCC filter
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 2, NULL, global_size_resized, NULL, 4, event_list, &event_list[4]);
+	for(size_t i = 0; i < 7; i++)
+	{
+		for(size_t j = 0; j < 7; j++)
+		{
+			err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_zncc[i][j], global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+			if(err < 0) {
+				printOpenCLErrorCode(err);
+				perror("4 Error in clEnqueueNDRangeKernel");
+				return EXIT_FAILURE;   
+			}
+			err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_zncc[i][j], global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+			if(err < 0) {
+				printOpenCLErrorCode(err);
+				perror("5 Error in clEnqueueNDRangeKernel");
+				return EXIT_FAILURE;   
+			}
+		}
+	}
+
+	/*err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_0, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("4 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 2, NULL, global_size_resized, NULL, 4, event_list, &event_list[5]);
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_1, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("4 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_2, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("4 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_3, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("4 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_4, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("4 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_5, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("4 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_6, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("4 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_0, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("5 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_1, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("5 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_2, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("5 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_3, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("5 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_4, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("5 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_5, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("5 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_6, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("5 Error in clEnqueueNDRangeKernel");
+		return EXIT_FAILURE;   
+	}*/
 
 	// crosscheck
 	err = clEnqueueNDRangeKernel(command_queue, crosscheck_krnl, 1, NULL, &global_size_resized_asd, NULL, 6, event_list, &event_list[6]);
@@ -709,16 +956,17 @@ int main(int argc, char **argv)
 	}
 	
 	// Read results
-	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 10, event_list, &buffer_event_list[13]);
+	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 10, event_list, &buffer_event_list[17]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("Error in clEnqueueReadBuffer");
 		return EXIT_FAILURE;
 	}
-
+	
 	// profile kernel execution times
+	
 	clWaitForEvents(10, (const cl_event*)&event_list);
-
+	
 	// resize left
 	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[0], NULL);
 	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[0], NULL);
@@ -779,18 +1027,21 @@ int main(int argc, char **argv)
 	exectimems[9] = (cl_double)(kernelendtimes[9] - kernelstarttimes[9])*(cl_double)(1e-06);
 	printf("normalize kernel execution time for right image: %lf ms\n", exectimems[9]);
 
+	
+	// profile buffers
+	clWaitForEvents(18, (const cl_event*)&buffer_event_list);
 
 	// buffer writes
 	clGetEventProfilingInfo(buffer_event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &bufferstarttimes[0], NULL);
-	clGetEventProfilingInfo(buffer_event_list[12], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &bufferendtimes[12], NULL);
-	buffertimems[0] = (cl_double)(bufferendtimes[12] - bufferstarttimes[0])*(cl_double)(1e-06);
+	clGetEventProfilingInfo(buffer_event_list[16], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &bufferendtimes[16], NULL);
+	buffertimems[0] = (cl_double)(bufferendtimes[16] - bufferstarttimes[0])*(cl_double)(1e-06);
 	printf("time taken for writing buffer to device: %lf ms\n", buffertimems[0]);
 
 	// buffer reads
-	clGetEventProfilingInfo(buffer_event_list[13], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &bufferstarttimes[13], NULL);
-	clGetEventProfilingInfo(buffer_event_list[13], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &bufferendtimes[13], NULL);
-	buffertimems[13] = (cl_double)(bufferendtimes[13] - bufferstarttimes[13])*(cl_double)(1e-06);
-	printf("time taken for reading buffers from device: %lf ms\n", buffertimems[13]);
+	clGetEventProfilingInfo(buffer_event_list[17], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &bufferstarttimes[17], NULL);
+	clGetEventProfilingInfo(buffer_event_list[17], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &bufferendtimes[17], NULL);
+	buffertimems[17] = (cl_double)(bufferendtimes[17] - bufferstarttimes[17])*(cl_double)(1e-06);
+	printf("time taken for reading buffers from device: %lf ms\n", buffertimems[17]);
 
 	// Clean up and wait for all the commands to complete
 	err = clFlush(command_queue);
@@ -835,6 +1086,10 @@ int main(int argc, char **argv)
 	err = clReleaseMemObject(normalized_clmem);
 	err = clReleaseMemObject(min_clmem);
 	err = clReleaseMemObject(max_clmem);
+	err = clReleaseMemObject(disparities_clmem_lr);
+	err = clReleaseMemObject(zncc_scores_clmem_lr);
+	err = clReleaseMemObject(disparities_clmem_rl);
+	err = clReleaseMemObject(zncc_scores_clmem_rl);
 	err = clReleaseCommandQueue(command_queue);
 	err = clReleaseContext(context);
 	if(err < 0) {
@@ -854,6 +1109,11 @@ int main(int argc, char **argv)
 	free(occlusionfill);
 	free(zncc_output_lr);
 	free(zncc_output_rl);
+	free(disparities_lr);
+	free(disparities_rl);
+	free(zncc_scores_lr);
+	free(zncc_scores_rl);
+
 
 	printf("\n\nProgram finished\n");
 

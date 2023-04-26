@@ -1,4 +1,5 @@
-__kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *disparity_image, uint width, uint height, int b, int min_d, int max_d)
+__kernel void zncc(__global uchar *left, __global uchar *right, __global uchar *disparity_image, 
+    uint width, uint height, int b, int min_d, int max_d)
 {
     // Get pixel x and y 
     const int i = get_global_id(0);

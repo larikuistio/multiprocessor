@@ -23,4 +23,6 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat);
 
 double queryProfiler(void);
 
+void printOpenCLErrorCode(cl_int err);
+
 #endif

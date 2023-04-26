@@ -134,7 +134,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 
 	/* Identify a platform */
 	err = clGetPlatformIDs(1, &platform, NULL);			
-	if(err < 0) {			
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't find any platforms");
 		return EXIT_FAILURE;
 	}
@@ -142,9 +143,11 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Access a device, preferably a GPU */
 	err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &dev, NULL);
 	if(err == CL_DEVICE_NOT_FOUND) {
+		printOpenCLErrorCode(err);
 		err = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &dev, NULL);
 	}
 	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't access any devices");
 		return EXIT_FAILURE;   
 	}
@@ -152,7 +155,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Access device name */
 	err = clGetDeviceInfo(dev, CL_DEVICE_NAME, 		
 		48 * sizeof(char), name_data, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't read device name");
 		return EXIT_FAILURE;
 	}
@@ -160,7 +164,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Access device vendor */
 	err = clGetDeviceInfo(dev, CL_DEVICE_VENDOR, 		
 		192 * sizeof(char), vendor_data, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't read device vendor");
 		return EXIT_FAILURE;
 	}
@@ -168,7 +173,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Access device extensions */
 	err = clGetDeviceInfo(dev, CL_DEVICE_EXTENSIONS, 		
 		4096 * sizeof(char), ext_data, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't read device extensions");
 		return EXIT_FAILURE;
 	}
@@ -176,7 +182,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Access device global memory size */
 	err = clGetDeviceInfo(dev, CL_DEVICE_GLOBAL_MEM_SIZE, 		
 		sizeof(cl_ulong), &global_mem_size, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't read device global memory size");
 		return EXIT_FAILURE;
 	}
@@ -184,7 +191,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Access device address size */
 	err = clGetDeviceInfo(dev, CL_DEVICE_ADDRESS_BITS, 		
 		sizeof(cl_uint), &address_bits, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't read device address size");
 		return EXIT_FAILURE;
 	}
@@ -192,7 +200,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check if device is available */
 	err = clGetDeviceInfo(dev, CL_DEVICE_AVAILABLE, 		
 		sizeof(cl_bool), &device_available, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check if device is available");
 		return EXIT_FAILURE;
 	}
@@ -200,7 +209,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check if implementation provides a compiler for the device */
 	err = clGetDeviceInfo(dev, CL_DEVICE_COMPILER_AVAILABLE, 		
 		sizeof(cl_bool), &compiler_available, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check if implementation provides a compiler for the device");
 		return EXIT_FAILURE;
 	}
@@ -208,7 +218,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device image support */
 	err = clGetDeviceInfo(dev, CL_DEVICE_IMAGE_SUPPORT, 		
 		sizeof(cl_bool), &img_support, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device opencl version");
 		return EXIT_FAILURE;
 	}
@@ -216,7 +227,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Access device preferred vector width in chars */
 	err = clGetDeviceInfo(dev, CL_DEVICE_PREFERRED_VECTOR_WIDTH_CHAR, 		
 		sizeof(char_width), &char_width, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device preferred vector width");
 		return EXIT_FAILURE;
 	}
@@ -224,7 +236,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device max compute units */
 	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_COMPUTE_UNITS, 		
 		sizeof(max_compute_units), &max_compute_units, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device max compute units");
 		return EXIT_FAILURE;
 	}
@@ -232,7 +245,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device max work item dimensions */
 	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 		
 		sizeof(max_work_item_dim), &max_work_item_dim, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device max work item dimensions");
 		return EXIT_FAILURE;
 	}
@@ -240,7 +254,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device driver version */
 	err = clGetDeviceInfo(dev, CL_DRIVER_VERSION, 		
 		512 * sizeof(char), driver_version, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device driver version");
 		return EXIT_FAILURE;
 	}
@@ -248,7 +263,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check highest supported opencl version */
 	err = clGetDeviceInfo(dev, CL_DEVICE_OPENCL_C_VERSION, 		
 		512 * sizeof(char), highest_version, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check highest supported opencl version");
 		return EXIT_FAILURE;
 	}
@@ -256,7 +272,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device opencl version */
 	err = clGetDeviceInfo(dev, CL_DEVICE_VERSION, 		
 		512 * sizeof(char), device_version, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device opencl version");
 		return EXIT_FAILURE;
 	}
@@ -264,7 +281,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device local mem type */
 	err = clGetDeviceInfo(dev, CL_DEVICE_LOCAL_MEM_TYPE, 		
 		sizeof(cl_device_local_mem_type), &local_mem_type, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device local mem type");
 		return EXIT_FAILURE;
 	}
@@ -272,7 +290,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device local mem size */
 	err = clGetDeviceInfo(dev, CL_DEVICE_LOCAL_MEM_SIZE, 		
 		sizeof(cl_ulong), &local_mem_size, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device local mem size");
 		return EXIT_FAILURE;
 	}
@@ -280,7 +299,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device max clock frequency */
 	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_CLOCK_FREQUENCY, 		
 		sizeof(cl_uint), &max_clock_frequency, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device max clock frequency");
 		return EXIT_FAILURE;
 	}
@@ -288,7 +308,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device max constant buffer size */
 	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE, 		
 		sizeof(cl_ulong), &max_constant_buffer_size, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device max constant buffer size");
 		return EXIT_FAILURE;
 	}
@@ -296,7 +317,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device max constant buffer size */
 	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_WORK_GROUP_SIZE, 		
 		sizeof(size_t), &max_work_group_size, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device max work group size");
 		return EXIT_FAILURE;
 	}
@@ -305,7 +327,8 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 	/* Check device max constant buffer size */
 	err = clGetDeviceInfo(dev, CL_DEVICE_MAX_WORK_ITEM_SIZES, 		
 		max_work_item_dim * sizeof(size_t), &max_work_item_sizes, NULL);			
-	if(err < 0) {		
+	if(err < 0) {
+		printOpenCLErrorCode(err);
 		perror("Couldn't check device max work item sizes");
 		return EXIT_FAILURE;
 	}
@@ -343,7 +366,7 @@ int printDeviceInfo(cl_device_id *device, cl_platform_id *plat)
 		printf("%lu\n", max_work_item_sizes[i]);
 	}
 	printf("\n");
-	
+
 	printf("");
 	printf("\n------------------------------------------\n");
 
@@ -361,4 +384,195 @@ double queryProfiler(void)
     long microseconds = time.tv_usec;
     double total_time = seconds + microseconds*1e-6;
     return total_time;
+}
+
+void printOpenCLErrorCode(cl_int err)
+{
+	switch (err)
+	{
+	case CL_BUILD_PROGRAM_FAILURE:
+		printf("CL_BUILD_PROGRAM_FAILURE\n");
+		break;
+	
+	case CL_COMPILER_NOT_AVAILABLE:
+		printf("CL_COMPILER_NOT_AVAILABLE\n");
+		break;
+
+	case CL_DEVICE_NOT_AVAILABLE:
+		printf("CL_DEVICE_NOT_AVAILABLE\n");
+		break;
+
+	case CL_DEVICE_NOT_FOUND:
+		printf("CL_DEVICE_NOT_FOUND\n");
+		break;
+	
+	case CL_IMAGE_FORMAT_MISMATCH:
+		printf("CL_IMAGE_FORMAT_MISMATCH\n");
+		break;
+
+	case CL_IMAGE_FORMAT_NOT_SUPPORTED:
+		printf("CL_IMAGE_FORMAT_NOT_SUPPORTED\n");
+		break;
+
+	case CL_INVALID_ARG_INDEX:
+		printf("CL_INVALID_ARG_INDEX\n");
+		break;
+	
+	case CL_INVALID_ARG_SIZE:
+		printf("CL_INVALID_ARG_SIZE\n");
+		break;
+
+	case CL_INVALID_ARG_VALUE:
+		printf("CL_INVALID_ARG_VALUE\n");
+		break;
+	
+	case CL_INVALID_BINARY:
+		printf("CL_INVALID_BINARY\n");
+		break;
+
+	case CL_INVALID_BUFFER_SIZE:
+		printf("CL_INVALID_BUFFER_SIZE\n");
+		break;
+
+	case CL_INVALID_BUILD_OPTIONS:
+		printf("CL_INVALID_BUILD_OPTIONS\n");
+		break;
+
+	case CL_INVALID_COMMAND_QUEUE:
+		printf("CL_INVALID_COMMAND_QUEUE\n");
+		break;
+
+	case CL_INVALID_CONTEXT:
+		printf("CL_INVALID_CONTEXT\n");
+		break;
+
+	case CL_INVALID_DEVICE:
+		printf("CL_INVALID_DEVICE\n");
+		break;
+
+	case CL_INVALID_DEVICE_TYPE:
+		printf("CL_INVALID_DEVICE_TYPE\n");
+		break;
+
+	case CL_INVALID_EVENT:
+		printf("CL_INVALID_EVENT\n");
+		break;
+	
+	case CL_INVALID_EVENT_WAIT_LIST:
+		printf("CL_INVALID_EVENT_WAIT_LIST\n");
+		break;
+
+	case CL_INVALID_GL_OBJECT:
+		printf("CL_INVALID_GL_OBJECT\n");
+		break;
+	
+	case CL_INVALID_GLOBAL_OFFSET:
+		printf("CL_INVALID_GLOBAL_OFFSET\n");
+		break;
+
+	case CL_INVALID_HOST_PTR:
+		printf("CL_INVALID_HOST_PTR\n");
+		break;
+
+	case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR:
+		printf("CL_INVALID_IMAGE_FORMAT_DESCRIPTOR\n");
+		break;
+
+	case CL_INVALID_IMAGE_SIZE:
+		printf("CL_INVALID_IMAGE_SIZE\n");
+		break;
+
+	case CL_INVALID_KERNEL_NAME:
+		printf("CL_INVALID_KERNEL_NAME\n");
+		break;
+
+	case CL_INVALID_KERNEL:
+		printf("CL_INVALID_KERNEL\n");
+		break;
+
+	case CL_INVALID_KERNEL_ARGS:
+		printf("CL_INVALID_KERNEL_ARGS\n");
+		break;
+
+	case CL_INVALID_KERNEL_DEFINITION:
+		printf("CL_INVALID_KERNEL_DEFINITION\n");
+		break;
+
+	case CL_INVALID_MEM_OBJECT:
+		printf("CL_INVALID_MEM_OBJECT\n");
+		break;
+
+	case CL_INVALID_OPERATION:
+		printf("CL_INVALID_OPERATION\n");
+		break;
+
+	case CL_INVALID_PLATFORM:
+		printf("CL_INVALID_PLATFORM\n");
+		break;
+	
+	case CL_INVALID_PROGRAM:
+		printf("CL_INVALID_PROGRAM\n");
+		break;
+
+	case CL_INVALID_PROGRAM_EXECUTABLE:
+		printf("CL_INVALID_PROGRAM_EXECUTABLE\n");
+		break;
+
+	case CL_INVALID_QUEUE_PROPERTIES:
+		printf("CL_INVALID_QUEUE_PROPERTIES\n");
+		break;
+
+	case CL_INVALID_SAMPLER:
+		printf("CL_INVALID_SAMPLER\n");
+		break;
+
+	case CL_INVALID_VALUE:
+		printf("CL_INVALID_VALUE\n");
+		break;
+
+	case CL_INVALID_WORK_DIMENSION:
+		printf("CL_INVALID_WORK_DIMENSION\n");
+		break;
+
+	case CL_INVALID_WORK_GROUP_SIZE:
+		printf("CL_INVALID_WORK_GROUP_SIZE\n");
+		break;
+
+	case CL_INVALID_WORK_ITEM_SIZE:
+		printf("CL_INVALID_WORK_ITEM_SIZE\n");
+		break;
+	
+	case CL_MAP_FAILURE:
+		printf("CL_MAP_FAILURE\n");
+		break;
+
+	case CL_MEM_OBJECT_ALLOCATION_FAILURE:
+		printf("CL_MEM_OBJECT_ALLOCATION_FAILURE\n");
+		break;
+	
+	case CL_MEM_COPY_OVERLAP:
+		printf("CL_MEM_COPY_OVERLAP\n");
+		break;
+	
+	case CL_OUT_OF_HOST_MEMORY:
+		printf("CL_OUT_OF_HOST_MEMORY\n");
+		break;
+
+	case CL_OUT_OF_RESOURCES:
+		printf("CL_OUT_OF_RESOURCES\n");
+		break;
+
+	case CL_PROFILING_INFO_NOT_AVAILABLE:
+		printf("CL_PROFILING_INFO_NOT_AVAILABLE\n");
+		break;
+
+	case CL_SUCCESS:
+		printf("NO ERROR - CL_SUCCESS\n");
+		break;
+	
+
+	default:
+		printf("UNKNOWN OPENCL ERROR CODE\n");
+		break;
+	}
 }
