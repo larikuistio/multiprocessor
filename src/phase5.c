@@ -276,7 +276,7 @@ int main(int argc, char **argv)
 		perror("9 Couldn't create memory buffers on the device");
 		return EXIT_FAILURE;   
 	}
-	cl_mem normalized_clmem = clCreateBuffer(context, CL_MEM_WRITE_ONLY, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
+	cl_mem normalized_clmem = clCreateBuffer(context, CL_MEM_READ_WRITE, resizedWidth * resizedHeight * sizeof(unsigned char), NULL, &err);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("10 Couldn't create memory buffers on the device");
@@ -830,13 +830,6 @@ int main(int argc, char **argv)
 				perror("4 Error in clEnqueueNDRangeKernel");
 				return EXIT_FAILURE;   
 			}
-			err = clFlush(command_queue);
-			err = clFinish(command_queue);
-			if(err < 0) {
-				printOpenCLErrorCode(err);
-				perror("0 Error in clFinish");
-				return EXIT_FAILURE;   
-			}
 			err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_zncc[i][j], global_size_zncc_rl, local_size, 4, event_list, &zncc_event_list[1][i*4 + j]);
 			if(err < 0) {
 				printOpenCLErrorCode(err);
@@ -844,13 +837,6 @@ int main(int argc, char **argv)
 				return EXIT_FAILURE;   
 			}
 			jj = j;
-			err = clFlush(command_queue);
-			err = clFinish(command_queue);
-			if(err < 0) {
-				printOpenCLErrorCode(err);
-				perror("00 Error in clFinish");
-				return EXIT_FAILURE;   
-			}
 		}
 		clWaitForEvents(i*4+jj, (const cl_event*)&zncc_event_list[0]);
 		clWaitForEvents(i*4+jj, (const cl_event*)&zncc_event_list[1]);
@@ -900,6 +886,7 @@ int main(int argc, char **argv)
 	// Read results
 
 	clWaitForEvents(17, (const cl_event*)&buffer_event_list);
+	clWaitForEvents(8, (const cl_event*)&event_list);
 	err = clFlush(command_queue);
 	err = clFinish(command_queue);
 	if(err < 0) {
@@ -907,7 +894,7 @@ int main(int argc, char **argv)
 		perror("2 Error in clFinish");
 		return EXIT_FAILURE;   
 	}
-	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 8, event_list, &buffer_event_list[17]);
+	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 0, NULL, &buffer_event_list[17]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("Error in clEnqueueReadBuffer");
@@ -915,8 +902,6 @@ int main(int argc, char **argv)
 	}
 	
 	// profile kernel execution times
-	 
-	clWaitForEvents(8, (const cl_event*)&event_list);
 	
 	// resize left
 	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[0], NULL);
