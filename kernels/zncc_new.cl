@@ -39,7 +39,10 @@ __kernel void zncc(__global uchar *left, __global uchar *right,
     zncc_scores[j*width + i] = -1;
 
     double newl, newr;
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    //barrier(CLK_GLOBAL_MEM_FENCE);
+    window_avg_l = 0;
+    window_avg_r = 0;
+    barrier(CLK_LOCAL_MEM_FENCE);
 
 
     // If pixel to be checked not OOB 
@@ -91,20 +94,22 @@ __kernel void zncc(__global uchar *left, __global uchar *right,
 
     zncc_val = native_divide(*zncc_score, native_sqrt(*denominator_l) * native_sqrt(*denominator_r));
     
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    //barrier(CLK_GLOBAL_MEM_FENCE);
     
     // If score with d disparity better than pervious best score for pixel -> update best disparity and score
-    atomic_flag_test_and_set((volatile __global atomic_flag*)&guard);
-    while (1 == (int)guard) {}
+    
+    
+    while(atomic_flag_test_and_set((volatile __global atomic_flag*)&guard));
+    
     if (zncc_val > zncc_scores[j * width + i]) {
-        atomic_store((volatile __global atomic_double *)&zncc_scores[j * width + i], zncc_val);
-        atomic_store((volatile __global atomic_int *)&disparities[j * width + i], dd);
-        //zncc_scores[j*width + i] = zncc_val;
-        //disparities[j*width + i] = dd;
+        //atomic_store((volatile __global atomic_double *)&zncc_scores[j * width + i], zncc_val);
+        //atomic_store((volatile __global atomic_int *)&disparities[j * width + i], dd);
+        zncc_scores[j*width + i] = zncc_val;
+        disparities[j*width + i] = dd;
     }
     atomic_flag_clear((volatile __global atomic_flag*)&guard);
     
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    //barrier(CLK_GLOBAL_MEM_FENCE);
 
     disparity_image[j * width + i] = (uchar)abs(disparities[j * width + i]);
 

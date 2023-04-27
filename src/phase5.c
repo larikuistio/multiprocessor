@@ -29,6 +29,7 @@
 #include <sys/time.h>
 #include <stdatomic.h>
 
+
 // ZNCC PARAMETERS
 int MIN_DISPARITY = 0;
 int MAX_DISPARITY = 65;
@@ -107,6 +108,10 @@ int main(int argc, char **argv)
 	cl_ulong kernelstarttimes[10];
 	cl_ulong kernelendtimes[10];
 	cl_double exectimems[10];
+
+	cl_ulong znccstarttimes[2][28];
+	cl_ulong znccendtimes[2][28];
+	cl_double znccexectimesms[2][28];
 
 	cl_ulong bufferstarttimes[18];
 	cl_ulong bufferendtimes[18];
@@ -762,34 +767,29 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;   
 	}
 	printf("zncc_krnl_2 work group size: %ld\n", kernel_work_group_size);
-
+	 
 	// Execute kernel on the device
 	const size_t global_size[2] = {(size_t)width*4, (size_t)height*4};
 	const size_t global_work_offset[2] = {0, 0};
 	const size_t global_size_resized[2] = {(size_t)resizedWidth, (size_t)resizedHeight};
-	const size_t global_size_zncc_lr[3] = {(size_t)resizedWidth/7, (size_t)resizedHeight/7, (size_t)MAX_DISPARITY};
-	const size_t global_size_zncc_rl[3] = {(size_t)resizedWidth/7, (size_t)resizedHeight/7, (size_t)MAX_DISPARITY};
-	size_t global_work_offset_zncc[7][7][3];
+	const size_t global_size_zncc_lr[3] = {(size_t)resizedWidth/7, (size_t)resizedHeight/4, (size_t)MAX_DISPARITY};
+	const size_t global_size_zncc_rl[3] = {(size_t)resizedWidth/7, (size_t)resizedHeight/4, (size_t)MAX_DISPARITY};
+	size_t global_work_offset_zncc[7][4][3];
 	for(size_t i = 0; i < 7; i++)
 	{
-		for(size_t j = 0; j < 7; j++)
+		for(size_t j = 0; j < 4; j++)
 		{
 			global_work_offset_zncc[i][j][0] = i * (resizedWidth/7);
-			global_work_offset_zncc[i][j][1] = j * (resizedHeight/7);
+			global_work_offset_zncc[i][j][1] = j * (resizedHeight/4);
 			global_work_offset_zncc[i][j][2] = 0;
 		}
 	}
-	/*const size_t global_work_offset_0[3] = {0, 0, 0};
-	const size_t global_work_offset_1[3] = {1 * (resizedWidth/7), 1 * (resizedHeight/7), 0};
-	const size_t global_work_offset_2[3] = {2 * (resizedWidth/7), 2 * (resizedHeight/7), 0};
-	const size_t global_work_offset_3[3] = {3 * (resizedWidth/7), 3 * (resizedHeight/7), 0};
-	const size_t global_work_offset_4[3] = {4 * (resizedWidth/7), 4 * (resizedHeight/7), 0};
-	const size_t global_work_offset_5[3] = {5 * (resizedWidth/7), 5 * (resizedHeight/7), 0};
-	const size_t global_work_offset_6[3] = {6 * (resizedWidth/7), 6 * (resizedHeight/7), 0};*/
+
 	const size_t local_size[3] = {(size_t)B, (size_t)B, (size_t)1};
    	const size_t global_size_resized_asd = (size_t)resizedWidth*resizedHeight*4;
 	cl_event event_list[10];
-
+	cl_event zncc_event_list[2][28];
+	 
 	// Resize
 	err = clEnqueueNDRangeKernel(command_queue, resize_krnl_1, 2, NULL, global_size, NULL, 0, NULL, &event_list[0]);
 	if(err < 0) {
@@ -817,114 +817,56 @@ int main(int argc, char **argv)
 		perror("3 Error in clEnqueueNDRangeKernel");
 		return EXIT_FAILURE;   
 	}
-
+ 
+	size_t jj = 0;
 	// ZNCC filter
 	for(size_t i = 0; i < 7; i++)
 	{
-		for(size_t j = 0; j < 7; j++)
+		for(size_t j = 0; j < 4; j++)
 		{
-			err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_zncc[i][j], global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+			err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_zncc[i][j], global_size_zncc_lr, local_size, 4, event_list, &zncc_event_list[0][i*4 + j]);
 			if(err < 0) {
 				printOpenCLErrorCode(err);
 				perror("4 Error in clEnqueueNDRangeKernel");
 				return EXIT_FAILURE;   
 			}
-			err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_zncc[i][j], global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
+			err = clFlush(command_queue);
+			err = clFinish(command_queue);
+			if(err < 0) {
+				printOpenCLErrorCode(err);
+				perror("0 Error in clFinish");
+				return EXIT_FAILURE;   
+			}
+			err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_zncc[i][j], global_size_zncc_rl, local_size, 4, event_list, &zncc_event_list[1][i*4 + j]);
 			if(err < 0) {
 				printOpenCLErrorCode(err);
 				perror("5 Error in clEnqueueNDRangeKernel");
 				return EXIT_FAILURE;   
 			}
+			jj = j;
+			err = clFlush(command_queue);
+			err = clFinish(command_queue);
+			if(err < 0) {
+				printOpenCLErrorCode(err);
+				perror("00 Error in clFinish");
+				return EXIT_FAILURE;   
+			}
 		}
+		clWaitForEvents(i*4+jj, (const cl_event*)&zncc_event_list[0]);
+		clWaitForEvents(i*4+jj, (const cl_event*)&zncc_event_list[1]);
 	}
-
-	/*err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_0, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
+	clWaitForEvents(28, (const cl_event*)&zncc_event_list[0]);
+	clWaitForEvents(28, (const cl_event*)&zncc_event_list[1]);
+	err = clFlush(command_queue);
+	err = clFinish(command_queue);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
-		perror("4 Error in clEnqueueNDRangeKernel");
+		perror("1 Error in clFinish");
 		return EXIT_FAILURE;   
 	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_1, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("4 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_2, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("4 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_3, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("4 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_4, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("4 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_5, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("4 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_1, 3, global_work_offset_6, global_size_zncc_lr, local_size, 4, event_list, &event_list[4]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("4 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_0, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("5 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_1, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("5 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_2, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("5 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_3, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("5 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_4, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("5 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_5, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("5 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}
-	err = clEnqueueNDRangeKernel(command_queue, zncc_krnl_2, 3, global_work_offset_6, global_size_zncc_rl, local_size, 4, event_list, &event_list[5]);
-	if(err < 0) {
-		printOpenCLErrorCode(err);
-		perror("5 Error in clEnqueueNDRangeKernel");
-		return EXIT_FAILURE;   
-	}*/
-
+ 
 	// crosscheck
-	err = clEnqueueNDRangeKernel(command_queue, crosscheck_krnl, 1, NULL, &global_size_resized_asd, NULL, 6, event_list, &event_list[6]);
+	err = clEnqueueNDRangeKernel(command_queue, crosscheck_krnl, 1, NULL, &global_size_resized_asd, NULL, 4, event_list, &event_list[4]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("6 Error in clEnqueueNDRangeKernel");
@@ -932,7 +874,7 @@ int main(int argc, char **argv)
 	}
 
 	// occlusionfill
-	err = clEnqueueNDRangeKernel(command_queue, occlusionfill_krnl, 2, NULL, global_size_resized, NULL, 7, event_list, &event_list[7]);
+	err = clEnqueueNDRangeKernel(command_queue, occlusionfill_krnl, 2, NULL, global_size_resized, NULL, 5, event_list, &event_list[5]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("7 Error in clEnqueueNDRangeKernel");
@@ -940,7 +882,7 @@ int main(int argc, char **argv)
 	}
 
 	// findminmax
-	err = clEnqueueNDRangeKernel(command_queue, findminmax_krnl, 1, NULL, &global_size_resized_asd, NULL, 8, event_list, &event_list[8]);
+	err = clEnqueueNDRangeKernel(command_queue, findminmax_krnl, 1, NULL, &global_size_resized_asd, NULL, 6, event_list, &event_list[6]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("8 Error in clEnqueueNDRangeKernel");
@@ -948,7 +890,7 @@ int main(int argc, char **argv)
 	}
 
 	// normalize
-	err = clEnqueueNDRangeKernel(command_queue, normalize_krnl, 1, NULL, &global_size_resized_asd, NULL, 9, event_list, &event_list[9]);
+	err = clEnqueueNDRangeKernel(command_queue, normalize_krnl, 1, NULL, &global_size_resized_asd, NULL, 7, event_list, &event_list[7]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("9 Error in clEnqueueNDRangeKernel");
@@ -956,7 +898,16 @@ int main(int argc, char **argv)
 	}
 	
 	// Read results
-	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 10, event_list, &buffer_event_list[17]);
+
+	clWaitForEvents(17, (const cl_event*)&buffer_event_list);
+	err = clFlush(command_queue);
+	err = clFinish(command_queue);
+	if(err < 0) {
+		printOpenCLErrorCode(err);
+		perror("2 Error in clFinish");
+		return EXIT_FAILURE;   
+	}
+	err = clEnqueueReadBuffer(command_queue, normalized_clmem, CL_TRUE, 0, resizedWidth*resizedHeight*sizeof(unsigned char), normalized, 8, event_list, &buffer_event_list[17]);
 	if(err < 0) {
 		printOpenCLErrorCode(err);
 		perror("Error in clEnqueueReadBuffer");
@@ -964,8 +915,8 @@ int main(int argc, char **argv)
 	}
 	
 	// profile kernel execution times
-	
-	clWaitForEvents(10, (const cl_event*)&event_list);
+	 
+	clWaitForEvents(8, (const cl_event*)&event_list);
 	
 	// resize left
 	clGetEventProfilingInfo(event_list[0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[0], NULL);
@@ -992,40 +943,40 @@ int main(int argc, char **argv)
 	printf("grayscale kernel execution time for right image: %lf ms\n", exectimems[3]);
 
 	// zncc left
+	clGetEventProfilingInfo(zncc_event_list[0][0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &znccstarttimes[0][0], NULL);
+	clGetEventProfilingInfo(zncc_event_list[0][27], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &znccendtimes[0][27], NULL);
+	znccexectimesms[0][0] = (cl_double)(znccendtimes[0][27] - znccstarttimes[0][0])*(cl_double)(1e-06);
+	printf("zncc kernels execution time for left image: %lf ms\n", znccexectimesms[0][0]);
+
+	// zncc right
+	clGetEventProfilingInfo(zncc_event_list[1][0], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &znccstarttimes[1][0], NULL);
+	clGetEventProfilingInfo(zncc_event_list[1][27], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &znccendtimes[1][27], NULL);
+	znccexectimesms[1][0] = (cl_double)(znccendtimes[1][27] - znccstarttimes[1][0])*(cl_double)(1e-06);
+	printf("zncc kernels execution time for right image: %lf ms\n", znccexectimesms[1][0]);
+
+	// crosscheck
 	clGetEventProfilingInfo(event_list[4], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[4], NULL);
 	clGetEventProfilingInfo(event_list[4], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[4], NULL);
 	exectimems[4] = (cl_double)(kernelendtimes[4] - kernelstarttimes[4])*(cl_double)(1e-06);
-	printf("zncc kernel execution time for left image: %lf ms\n", exectimems[4]);
+	printf("crosscheck kernel execution time for right image: %lf ms\n", exectimems[4]);
 
-	// zncc right
+	// occlusionfill
 	clGetEventProfilingInfo(event_list[5], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[5], NULL);
 	clGetEventProfilingInfo(event_list[5], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[5], NULL);
 	exectimems[5] = (cl_double)(kernelendtimes[5] - kernelstarttimes[5])*(cl_double)(1e-06);
-	printf("zncc kernel execution time for right image: %lf ms\n", exectimems[5]);
+	printf("occlusionfill kernel execution time for right image: %lf ms\n", exectimems[5]);
 
-	// crosscheck
+	// findminmax
 	clGetEventProfilingInfo(event_list[6], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[6], NULL);
 	clGetEventProfilingInfo(event_list[6], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[6], NULL);
 	exectimems[6] = (cl_double)(kernelendtimes[6] - kernelstarttimes[6])*(cl_double)(1e-06);
-	printf("crosscheck kernel execution time for right image: %lf ms\n", exectimems[6]);
+	printf("findminmax kernel execution time for right image: %lf ms\n", exectimems[6]);
 
-	// occlusionfill
+	// normalize
 	clGetEventProfilingInfo(event_list[7], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[7], NULL);
 	clGetEventProfilingInfo(event_list[7], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[7], NULL);
 	exectimems[7] = (cl_double)(kernelendtimes[7] - kernelstarttimes[7])*(cl_double)(1e-06);
-	printf("occlusionfill kernel execution time for right image: %lf ms\n", exectimems[7]);
-
-	// findminmax
-	clGetEventProfilingInfo(event_list[8], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[8], NULL);
-	clGetEventProfilingInfo(event_list[8], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[8], NULL);
-	exectimems[8] = (cl_double)(kernelendtimes[8] - kernelstarttimes[8])*(cl_double)(1e-06);
-	printf("findminmax kernel execution time for right image: %lf ms\n", exectimems[8]);
-
-	// normalize
-	clGetEventProfilingInfo(event_list[9], CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &kernelstarttimes[9], NULL);
-	clGetEventProfilingInfo(event_list[9], CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &kernelendtimes[9], NULL);
-	exectimems[9] = (cl_double)(kernelendtimes[9] - kernelstarttimes[9])*(cl_double)(1e-06);
-	printf("normalize kernel execution time for right image: %lf ms\n", exectimems[9]);
+	printf("normalize kernel execution time for right image: %lf ms\n", exectimems[7]);
 
 	
 	// profile buffers
