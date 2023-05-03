@@ -14,6 +14,15 @@
 #include <time.h>
 #include <sys/time.h>
 
+/*
+Some parts are based on examples provided in this book:
+	
+Matthew Scarpino
+OpenCL in action : how to accelerate graphics and computation
+
+https://oula.finna.fi/Record/oy.9917467213906252?sid=2954376879
+*/
+
 int add_matrices(void) {
 
     unsigned array_row_size = 10;

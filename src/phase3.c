@@ -19,6 +19,7 @@ unsigned char* calcZNCC(const unsigned char *left, const unsigned char *right, u
 {
     unsigned char* disparity_image = (unsigned char*)malloc(width*height);
 
+// loop through all pixels in the image
 #pragma omp parallel for shared(left, right, disparity_image) firstprivate(width,height,min_d,max_d, b)
     for (unsigned i = 0; i < width; i++)
     {
@@ -26,14 +27,17 @@ unsigned char* calcZNCC(const unsigned char *left, const unsigned char *right, u
         {
             int best_disparity = max_d;
             double best_zncc = -1;
+            // Loop through all disparities in range (min_d, max_d) to find the best disparity
             for (int d = min_d; d <= max_d; d++)
             {
+                // Find the average of a window with side length of b around the pixel
                 double window_avg_l = 0.0;
                 double window_avg_r = 0.0;
                 for(int y = -(b - 1 / 2); y <= (b - 1 / 2); y++)
                 {
                     for(int x = -(b - 1 / 2); x <= (b - 1 / 2); x++)
                     {
+                        // If pixel to be checked OOB 
                         if(!(i + y >= 0) || !(i + y < width) || !(j + x >= 0) || !(j + x < height) || !(i + y - d >= 0) || !(i + y - d < width))
                         {
                             continue;
@@ -45,6 +49,10 @@ unsigned char* calcZNCC(const unsigned char *left, const unsigned char *right, u
                 window_avg_l /= b*b;
                 window_avg_r /= b*b;
                 
+                /* Find the ZNCC score of this pixel with formula 
+                sum_left_window_deviation*sum_right_window_deviation / 
+                (sqrt(sum_left_window_deviation)* sqrt(sum_right_window_deviation))
+                */
 
                 double numerator = 0;
                 double denominator_l = 0;
@@ -56,6 +64,7 @@ unsigned char* calcZNCC(const unsigned char *left, const unsigned char *right, u
                 {
                     for(int x = -(b - 1 / 2); x <= (b - 1 / 2); x++)
                     {
+                        // If pixel to be checked OOB 
                         if(!(i + y >= 0) || !(i + y < width) || !(j + x >= 0) || !(j + x < height) || !(i + y - d >= 0) || !(i + y - d < width))
                         {
                             continue;
@@ -71,6 +80,7 @@ unsigned char* calcZNCC(const unsigned char *left, const unsigned char *right, u
                 }
                 zncc_val = numerator / (sqrt(denominator_l) * sqrt(denominator_r));
 
+                // If score with d disparity better than pervious best score for pixel -> update best disparity and score
                 if(zncc_val > best_zncc)
                 {
                     best_disparity = d;
