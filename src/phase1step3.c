@@ -17,11 +17,22 @@
 #include "helpers.h"
 #include <sys/time.h>
 
+/*
+Some parts are based on examples provided in this book:
+	
+Matthew Scarpino
+OpenCL in action : how to accelerate graphics and computation
+
+https://oula.finna.fi/Record/oy.9917467213906252?sid=2954376879
+*/
+
 int main(int argc, char **argv) {
 
+   // profile entire program execution time
    clock_t startprogclk = clock();
 	double startprog = queryProfiler();
 
+   // exit if required file names not provided
    if (argc < 2) {
       printf("provide input and output image files names as arguments\n");
       return EXIT_FAILURE;
@@ -37,6 +48,7 @@ int main(int argc, char **argv) {
 
    clock_t startclk = clock();
    double start = queryProfiler();
+   // read input image from file
    decodeImage(inputimg, &image, &width, &height);
    resizedWidth = width / 4;
    resizedHeight = height / 4;
